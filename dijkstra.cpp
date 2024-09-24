@@ -58,5 +58,5 @@ double *dijkstra(double **graph, size_t point_num, size_t start)
 
 int main()
 {
-    std::cout << "Hell world!" << std:: endl
+    std::cout << "Hell world!" << std:: endl;
 }
