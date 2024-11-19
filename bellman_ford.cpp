@@ -39,7 +39,7 @@ private:
 
 public:
     graph_for_bellman_ford(size_t edge_number);
-    ~graph_for_bellman_ford();
+    graph_for_bellman_ford();
     auto add_edge(size_t start, size_t end, double length = 1) -> void
     {
         this->nxt.push_back(head[start]);
@@ -81,7 +81,7 @@ graph_for_bellman_ford<node_number>::graph_for_bellman_ford(size_t edge_number)
 }
 
 template <size_t node_number>
-graph_for_bellman_ford<node_number>::~graph_for_bellman_ford()
+graph_for_bellman_ford<node_number>::graph_for_bellman_ford()
 {
     head.fill(-1);
     nxt.reserve(node_number), to.reserve(node_number);

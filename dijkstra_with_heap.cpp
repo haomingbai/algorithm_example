@@ -18,7 +18,7 @@ struct node_with_distance
 
 bool operator<(const node_with_distance a, const node_with_distance b)
 {
-    return a.distance < b.distance;
+    return a.distance > b.distance;
 }
 
 /// @brief This to_edge indicates an edge to node destination.
