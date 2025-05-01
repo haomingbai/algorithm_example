@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <cassert>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -91,14 +93,57 @@ class adjacent_matrix {
       for (std::size_t i = 0; i < node_num; i++) {
         if (!visited[i]) {
           T dist = res[node_to_proc] + mat[node_to_proc][i];
-          if (res[node_to_proc] == inf || mat[node_to_proc][i] == inf ||
-              dist < res[node_to_proc]) {
+          if (mat[node_to_proc][i] == inf || dist < res[node_to_proc]) {
             continue;  // Digit overflows
                        // Might be deleted if you can make sure that the range
                        // of T is enough.
           }
           if (dist < res[i]) {
             res[i] = dist;
+          }
+        }
+      }
+    }
+
+    delete[] visited;
+    return res;
+  }
+
+  auto dijkstra(std::size_t start, std::vector<std::size_t> &prev)
+      -> std::vector<T> {
+    std::vector<T> res(node_num, inf);
+    res[start] = 0;
+    auto visited = new bool[node_num]();
+    prev.clear();
+    prev.resize(node_num, SIZE_MAX);
+
+    while (true) {
+      // Find the node unvisited with the shortest distance.
+      std::size_t node_to_proc = SIZE_MAX;
+      for (std::size_t i = 0; i < node_num; i++) {
+        if (node_to_proc == SIZE_MAX && !visited[i]) {
+          node_to_proc = i;
+        } else if (!visited[i] && res[i] < res[node_to_proc]) {
+          node_to_proc = i;
+        }
+      }
+      if (node_to_proc == SIZE_MAX || res[node_to_proc] == inf) {
+        break;
+      }
+      visited[node_to_proc] = 1;
+
+      // Release the node
+      for (std::size_t i = 0; i < node_num; i++) {
+        if (!visited[i]) {
+          T dist = res[node_to_proc] + mat[node_to_proc][i];
+          if (mat[node_to_proc][i] == inf || dist < res[node_to_proc]) {
+            continue;  // Digit overflows
+                       // Might be deleted if you can make sure that the range
+                       // of T is enough.
+          }
+          if (dist < res[i]) {
+            res[i] = dist;
+            prev[i] = node_to_proc;
           }
         }
       }
@@ -117,8 +162,89 @@ class adjacent_matrix {
     mat[from][to] = weight;
   }
 
-  // To be realized
-  auto spfa(std::size_t from, std::vector<T> &res) -> bool {}
+  auto spfa(std::size_t from, std::vector<T> &res) -> bool {
+    if (from >= node_num) {
+      throw std::invalid_argument(
+          "Invalid argument: the starting or end point is not in the graph");
+    }
+
+    res.clear();
+    res.resize(node_num, inf);
+    res[from] = 0;
+    std::queue<size_t> q;
+    q.push(from);
+    std::vector<unsigned char> in_queue(node_num, false);
+    std::vector<std::size_t> cnt(node_num, 0);
+    in_queue[from] = true;
+
+    while (!q.empty()) {
+      size_t to_proc = q.front();
+      q.pop();
+      in_queue[to_proc] = false;
+
+      for (std::size_t i = 0; i < node_num; i++) {
+        if (mat[to_proc][i] != inf) {
+          T dist = res[to_proc] + mat[to_proc][i];
+          if (dist < res[i]) {
+            res[i] = dist;
+            cnt[i] = cnt[to_proc] + 1;
+            if (cnt[i] >= node_num) {
+              return false;
+              // The function fail becalue a negative circular.
+            }
+            if (!in_queue[i]) {
+              q.push(i), in_queue[i] = true;
+            }
+          }
+        }
+      }
+    }
+    return true;  // The function succeed.
+  }
+
+  auto spfa(std::size_t from, std::vector<T> &res, std::vector<size_t> &prev)
+      -> bool {
+    if (from >= node_num) {
+      throw std::invalid_argument(
+          "Invalid argument: the starting or end point is not in the graph");
+    }
+
+    prev.clear();
+    prev.resize(node_num, SIZE_MAX);
+    res.clear();
+    res.resize(node_num, inf);
+    res[from] = 0;
+    std::queue<size_t> q;
+    q.push(from);
+    std::vector<unsigned char> in_queue(node_num, false);
+    std::vector<std::size_t> cnt(node_num, 0);
+    in_queue[from] = true;
+
+    while (!q.empty()) {
+      size_t to_proc = q.front();
+      q.pop();
+      in_queue[to_proc] = false;
+
+      for (std::size_t i = 0; i < node_num; i++) {
+        if (mat[to_proc][i] != inf) {
+          T dist = res[to_proc] + mat[to_proc][i];
+          if (dist < res[i]) {
+            prev[i] = to_proc;
+            res[i] = dist;
+            cnt[i] = cnt[to_proc] + 1;
+            if (cnt[i] >= node_num) {
+              return false;
+              // The function fail becalue a negative circular.
+            }
+            if (!in_queue[i]) {
+              q.push(i), in_queue[i] = true;
+            }
+          }
+        }
+      }
+    }
+    return true;  // The function succeed.
+  }
 
   template <typename Func, typename... Args>
   auto dfs(std::size_t start, Func func, Args... args) -> void {
@@ -151,6 +277,20 @@ class adjacent_matrix {
         }
       }
     }
+  }
+
+  CONSTEXPR23 auto floyd() -> std::vector<std::vector<T>> {
+    auto res = mat;
+
+    for (std::size_t k = 0; k < node_num; k++) {
+      for (std::size_t from = 0; from < node_num; from++) {
+        for (std::size_t to = 0; to < node_num; to++) {
+          res[from][to] = std::min(res[from][to], res[from][k] + res[k][to]);
+        }
+      }
+    }
+
+    return res;
   }
 };
 
@@ -290,8 +430,233 @@ int test_adj_bfs() {
   return 0;
 }
 
+int test_adj_spfa() {
+  {
+    // —— 测试 1：无负环的有向图 ——
+    // 节点 0→1→2→3，且 0→3 还有一条直达边
+    // 结构：
+    //   0 -5-> 1 -2-> 2 -1-> 3
+    //   0 -9-> 3
+    adjacent_matrix<int> g(4, /*inf=*/1000000);
+    g.add_edge(0, 1, 5);
+    g.add_edge(1, 2, 2);
+    g.add_edge(2, 3, 1);
+    g.add_edge(0, 3, 9);
+
+    std::vector<int> dist;
+    bool ok = g.spfa(0, dist);
+    assert(ok && "SPFA on acyclic graph should succeed");
+
+    // 预期最短距离：0→{0,1,2,3} = {0,5,7,8}
+    std::vector<int> exp = {0, 5, 7, 8};
+    std::cout << "No-cycle distances:";
+    for (auto d : dist) std::cout << " " << d;
+    std::cout << std::endl;
+
+    assert(dist == exp && "Distances mismatch in no-cycle test");
+  }
+
+  {
+    // —— 测试 2：带负环的图 ——
+    // 0→1 (1), 1→2 (-2), 2→1 (1) 构成净权重 -1 的负环
+    adjacent_matrix<int> g(3, /*inf=*/1000000);
+    g.add_edge(0, 1, 1);
+    g.add_edge(1, 2, -2);
+    g.add_edge(2, 1, 1);
+
+    std::vector<int> dist;
+    bool ok = g.spfa(0, dist);
+    assert(!ok && "SPFA should detect negative cycle");
+    std::cout << "Negative cycle correctly detected." << std::endl;
+  }
+
+  std::cout << "All SPFA tests passed!\n";
+  return 0;
+}
+
+int test_adj_dijkstra_consist() {
+  constexpr std::size_t N = 5;
+  // 构造一个 5 节点图，无边时默认 inf
+  adjacent_matrix<int> g(N, /*inf=*/1000000);
+
+  // 添加一些有向边：0->1 (10), 0->2 (3), 2->1 (1), 2->3 (2), 1->3 (2), 3->4 (1)
+  g.add_edge(0, 1, 10);
+  g.add_edge(0, 2, 3);
+  g.add_edge(2, 1, 1);
+  g.add_edge(2, 3, 2);
+  g.add_edge(1, 3, 2);
+  g.add_edge(3, 4, 1);
+
+  // 运行 dijkstra 并获取 dist 与 prev
+  std::vector<std::size_t> prev;
+  auto dist = g.dijkstra(0, prev);
+
+  // 1) 验证 prev 大小和值域
+  assert(prev.size() == N);
+  for (std::size_t v = 0; v < N; ++v) {
+    // prev 值要么是 SIZE_MAX（起点或不可达），要么 < N
+    assert(prev[v] == SIZE_MAX || prev[v] < N);
+  }
+
+  // 2) 起点 prev[0] 必须为 SIZE_MAX
+  assert(prev[0] == SIZE_MAX);
+
+  // 3) 验证各节点的最短前驱
+  // 手工计算最短路径树：
+  // 0: dist=0, prev=SIZE_MAX
+  // 1: 最短路径 0->2->1, 所以前驱 prev[1] 应为 2
+  // 2: 最短路径 0->2,       prev[2] == 0
+  // 3: 最短路径 0->2->3,    prev[3] == 2
+  // 4: 最短路径 0->2->3->4, prev[4] == 3
+  std::vector<std::size_t> expected_prev = {
+      SIZE_MAX,  // 0
+      2,         // 1
+      0,         // 2
+      2,         // 3
+      3          // 4
+  };
+
+  for (std::size_t v = 0; v < N; ++v) {
+    std::cout << "prev[" << v << "] = ";
+    if (prev[v] == SIZE_MAX)
+      std::cout << "SIZE_MAX";
+    else
+      std::cout << prev[v];
+    std::cout << std::endl;
+
+    assert(prev[v] == expected_prev[v] && "前驱数组值与预期不符");
+  }
+
+  std::cout << "Dijkstra with prev 测试通过！" << std::endl;
+  return 0;
+}
+
+int test_adj_spfa_consist() {
+  constexpr std::size_t N = 5;
+  const int INF = 1000000;
+
+  // —— 测试 1：无负环场景 ——
+  {
+    // 构造 5 节点图
+    adjacent_matrix<int> g(N, INF);
+    // 添加边：0→1(4), 0→2(2), 2→1(1), 1→3(5), 2→3(8), 3→4(3)
+    g.add_edge(0, 1, 4);
+    g.add_edge(0, 2, 2);
+    g.add_edge(2, 1, 1);
+    g.add_edge(1, 3, 5);
+    g.add_edge(2, 3, 8);
+    g.add_edge(3, 4, 3);
+
+    std::vector<int> dist;
+    std::vector<std::size_t> prev;
+    bool ok = g.spfa(0, dist, prev);
+    assert(
+        ok &&
+        "SPFA 在无负环图上应返回 true");  // SPFA 成功返回 true
+                                          // :contentReference[oaicite:0]{index=0}
+
+    // 预期最短距离：{0, 3, 2, 8, 11}
+    std::vector<int> exp_dist = {0, 3, 2, 8, 11};
+    // 预期前驱： prev[0]=SIZE_MAX, prev[1]=2, prev[2]=0, prev[3]=1, prev[4]=3
+    std::vector<std::size_t> exp_prev = {SIZE_MAX,  // 源点无前驱
+                                         2, 0, 1, 3};
+
+    for (std::size_t i = 0; i < N; ++i) {
+      assert(dist[i] == exp_dist[i] && "距离计算错误");
+      assert(prev[i] == exp_prev[i] &&
+             "前驱记录错误");  // 前驱更新逻辑 O(1)
+                               // :contentReference[oaicite:1]{index=1}
+    }
+
+    std::cout << "Test 1 (no negative cycle) passed.\n";
+  }
+
+  // —— 测试 2：带负环场景 ——
+  {
+    // 构造含 3 节点的图：0→1(1), 1→2(-2), 2→1(1) 形成净权 -1 的负环
+    adjacent_matrix<int> g2(3, INF);
+    g2.add_edge(0, 1, 1);
+    g2.add_edge(1, 2, -2);
+    g2.add_edge(2, 1, 1);
+
+    std::vector<int> dist2;
+    std::vector<std::size_t> prev2;
+    bool ok2 = g2.spfa(0, dist2, prev2);
+    assert(
+        !ok2 &&
+        "SPFA 应检测到负环并返回 false");  // 负环检测: cnt[i]>=N 时提前退出
+                                           // :contentReference[oaicite:2]{index=2}
+
+    // 对于负环，prev2 中未触达节点仍应为 SIZE_MAX（如节点 2 或其他）
+    for (std::size_t i = 0; i < prev2.size(); ++i) {
+      if (dist2[i] == INF) {
+        assert(prev2[i] == SIZE_MAX && "不可达节点前驱应保持 SIZE_MAX");
+      }
+    }
+
+    std::cout << "Test 2 (negative cycle) passed.\n";
+  }
+
+  std::cout << "All SPFA-with-prev tests passed!\n";
+  return 0;
+}
+
+int test_adj_floyd() {
+  constexpr std::size_t N = 4;
+  const int INF = 1000000;
+
+  // 1) 构造 4 节点图，默认边权为 INF
+  adjacent_matrix<int> g(N, INF);
+
+  // 2) 添加若干有向边
+  //    图结构：
+  //      0 → 1 (5)
+  //      0 → 3 (10)
+  //      1 → 2 (3)
+  //      2 → 3 (1)
+  g.add_edge(0, 1, 5);
+  g.add_edge(0, 3, 10);
+  g.add_edge(1, 2, 3);
+  g.add_edge(2, 3, 1);
+
+  // 3) 运行 floyd
+  auto d = g.floyd();
+
+  // 4) 预期距离矩阵
+  //    从 i 到 j 的最短距离：
+  //      0→0 = 0
+  //      0→1 = 5
+  //      0→2 = 5+3=8
+  //      0→3 = min(10, 8+1)=9
+  //      1→0 = INF (不可达)
+  //      1→1 = 0
+  //      1→2 = 3
+  //      1→3 = 3+1=4
+  //      2→0 = INF
+  //      2→1 = INF
+  //      2→2 = 0
+  //      2→3 = 1
+  //      3→* = INF except 3→3=0
+  std::vector<std::vector<int>> exp = {
+      {0, 5, 8, 9}, {INF, 0, 3, 4}, {INF, INF, 0, 1}, {INF, INF, INF, 0}};
+
+  // 5) 验证每个条目
+  for (std::size_t i = 0; i < N; ++i) {
+    for (std::size_t j = 0; j < N; ++j) {
+      assert(d[i][j] == exp[i][j] && "Floyd 计算结果不符预期");
+    }
+  }
+
+  std::cout << "Floyd 测试通过！\n";
+  return 0;
+}
+
 int main() {
   test_adj_dijkstra();
   test_adj_dfs();
   test_adj_bfs();
+  test_adj_spfa();
+  test_adj_dijkstra_consist();
+  test_adj_spfa_consist();
+  test_adj_floyd();
 }
