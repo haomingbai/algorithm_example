@@ -2,15 +2,17 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
-#include <iostream>
+#include <cstdio>
 #include <iterator>
-#include <limits>
 #include <list>
 #include <queue>
 #include <stdexcept>
 #include <utility>
 #include <vector>
+
+#pragma once
+
+#include "./dsu.cpp"
 
 #if __cplusplus >= 202302L
 #define CONSTEXPR23 constexpr
@@ -299,9 +301,56 @@ class adjacent_matrix {
     return res;
   }
 
+  auto floyd(std::vector<std::vector<std::size_t>> &prevs)
+      -> std::vector<std::vector<T>> {
+    auto res = mat;
+    prevs.clear();
+    prevs.resize(node_num, std::vector<std::size_t>(node_num, SIZE_MAX));
+    for (std::size_t from = 0; from < node_num; from++) {
+      for (std::size_t to = 0; to < node_num; to++) {
+        if (mat[from][to] != inf) {
+          prevs[from][to] = from;
+        }
+      }
+    }
+
+    for (std::size_t k = 0; k < node_num; k++) {
+      for (std::size_t from = 0; from < node_num; from++) {
+        for (std::size_t to = 0; to < node_num; to++) {
+          auto res_prev = res[from][to];
+          res[from][to] = std::min(res[from][to], res[from][k] + res[k][to]);
+          if (res[from][to] != res_prev) {
+            prevs[from][to] = prevs[k][to];
+          }
+        }
+      }
+    }
+
+    return res;
+  }
+
   auto remove_edge(std::size_t from, std::size_t to) -> void {
     mat[from][to] = inf;
   }
+};
+
+template <typename T>
+struct undirected_edge {
+  std::size_t node1, node2;
+  T weight;
+  undirected_edge(std::size_t n1, std::size_t n2, T weight) {
+    node1 = n1, node2 = n2;
+    this->weight = weight;
+  }
+  bool operator==(const undirected_edge &e) const {
+    if (((node1 == e.node1 && node2 == e.node2) ||
+         (node2 == e.node1 && node1 == e.node2)) &&
+        weight == e.weight) {
+      return true;
+    }
+    return false;
+  }
+  bool operator<(const undirected_edge &e) const { return weight < e.weight; }
 };
 
 template <typename T>
@@ -326,6 +375,42 @@ class adjacent_list {
   }
 
  public:
+  auto kruskal() -> std::vector<undirected_edge<T>> {
+    std::vector<undirected_edge<T>> edge_set;
+    dsu set_union(node_num);
+    std::vector<undirected_edge<T>> res;
+
+    for (auto idx = 0uz; idx < node_num; idx++) {
+      for (auto &to_edge : edges[idx]) {
+        if (idx < to_edge.destination) {  // 只加 (u,v) 而不加 (v,u)
+          edge_set.emplace(idx, to_edge.destination, to_edge.distance);
+        }
+      }
+    }
+    std::stable_sort(edge_set);
+
+    std::size_t cnt = 0;
+
+    for (auto &edge : edge_set) {
+      if (cnt >= node_num - 1) {
+        break;
+      }
+
+      auto root1(set_union.findRoot(edge.node1));
+      auto root2(set_union.findRoot(edge.node2));
+
+      if (root1 == root2) {
+        continue;
+      }
+
+      cnt++;
+      res.emplace_back(edge);
+      set_union.unite(edge.node1, edge.node2);
+    }
+
+    return res;
+  }
+
   adjacent_list(std::size_t node_number)
       : node_num(node_number), edges(node_number), inf(10000000) {}
 

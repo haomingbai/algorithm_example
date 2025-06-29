@@ -1,3 +1,7 @@
+#include <functional>
+#include <iostream>
+#include <limits>
+
 #include "graph.cpp"
 
 int test_adj_dijkstra() {
