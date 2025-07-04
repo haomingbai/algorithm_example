@@ -91,6 +91,7 @@ concept RandomAccessContainer =
 /// 朴素版本的线段树, 类型参数要求加法运算
 template <Addable DataType>
 class SimpleSegTree {
+ protected:
   const size_t size;   /// 线段树可以用来表示一个数组, 同时快速查询它的一些性质.
                        /// `size`变量表示了这样的数组的长度
                        /// 在整个朴素线段树中, 几乎所有的下标都从1开始,
@@ -498,6 +499,7 @@ class SimpleSegTree {
 /// 然后根据实际需求创建新节点.
 template <Addable T>
 class PresidentTree {
+ protected:
   /// 这是节点本身的数据, 因为一个节点所代表的范围可以通过计算得到,
   /// 而且这种数据在线段树的实际操作中必须被反复计算,
   /// 所以节点本身不存储它存放的数据的覆盖范围.
@@ -556,7 +558,8 @@ class PresidentTree {
     assert(left_edge <= right_edge);
 
     /// 获得当前节点的引用
-    auto &curr_node = nodes[curr_idx];
+    /// 这里因为我犯了一个错误, 所以只能这样写了, 这样写也有利于可读性
+#define curr_node nodes[curr_idx]
 
     /// 如果左边界 == 右边界, 那么这个时候, 线段树的建立已经到了叶子节点.
     /// 这个时候, 我们应当写完元素的值就返回.
@@ -570,7 +573,8 @@ class PresidentTree {
     /// 左右子树因为还没被建立, 所以位置都通过节点分配函数获取.
     auto left_idx = assignNode(), right_idx = assignNode();
     /// 获取节点的引用.
-    auto &left_node = nodes[left_idx], &right_node = nodes[right_idx];
+#define left_node nodes[left_idx]
+#define right_node nodes[right_idx]
 
     /// 设置左右子树的指针, 其实这里按照道理, 下标就是朴素的线段树的样子.
     curr_node.left_idx = left_idx, curr_node.right_idx = right_idx;
@@ -581,6 +585,9 @@ class PresidentTree {
 
     /// 当前的值等于左右子树的和.
     curr_node.val = left_node.val + right_node.val;
+#undef left_node
+#undef right_node
+#undef curr_node
   }
 
   /// 更新节点, 增量更新
@@ -592,15 +599,15 @@ class PresidentTree {
                   size_t old_idx, size_t curr_idx) {
     assert(left_edge > 0 && right_edge <= size);
     assert(left_edge <= right_edge);
-    assert(pos >= left_edge && pos < right_edge);
+    assert(pos >= left_edge && pos <= right_edge);
 
     /// 获得旧版的当前节点和新版的当前节点的引用.
     /// 这里一定要注意, 旧版本的一定要写成const,
     /// 因为我们一定不能不小心修改了旧版本.
     /// 这是编程的良好习惯, 常刷LeetCode的同学都知道,
     /// 当然常刷CF(无论是CodeForces还是CrossFire都一样)的同学的一般不知道......
-    auto &curr_node = nodes[curr_idx];
-    const auto &old_node = nodes[old_idx];
+#define curr_node nodes[curr_idx]
+#define old_node nodes[old_idx]
 
     /// 因为有了单点的增量, 这里我们可以直接加.
     /// 如果存在元素 a: a -> a + x,
@@ -618,8 +625,8 @@ class PresidentTree {
     /// 那不就等于一切不变吗, 那这样的话就可以不用创建新节点了.
     /// 因为下面的所有区间的和与元素的值都是一样的.
     if (diff == one) {
-      curr_node.left_edge = old_node.left_edge;
-      curr_node.right_edge = old_node.right_edge;
+      curr_node.left_idx = old_node.left_idx;
+      curr_node.right_idx = old_node.right_idx;
       return;
     }
 
@@ -646,6 +653,8 @@ class PresidentTree {
       curr_node.right_idx = new_child_idx;
       updateDiff(diff, pos, mid + 1, right_edge, old_child_idx, new_child_idx);
     }
+#undef curr_node
+#undef old_node
   }
 
   /// 单点更新, 只不过这次不带增量更新.
@@ -656,9 +665,9 @@ class PresidentTree {
     assert(left_edge <= left_edge);
     assert(pos >= left_edge && pos <= right_edge);
 
-    /// 获取新老节点, 这里老节点还是注意保持不变, 用只读方式获得引用.
-    auto &curr_node = nodes[curr_idx];
-    const auto &old_node = nodes[old_idx];
+    /// 获取新老节点, 还是一样的方式.
+#define curr_node nodes[curr_idx]
+#define old_node nodes[old_idx]
 
     /// 如果是更新叶子节点, 那么就直接赋值就可以.
     if (left_edge == right_edge) {
@@ -676,8 +685,8 @@ class PresidentTree {
       /// 获取新旧待更新子树的下标.
       auto new_child_idx = assignNode(), old_child_idx = old_node.left_idx;
       /// 获取他们的引用
-      auto &new_child_node = nodes[new_child_idx];
-      const auto &old_child_node = nodes[old_child_idx];
+#define new_child_node nodes[new_child_idx]
+#define old_child_node nodes[old_child_idx]
 
       /// 还是更新当前节点的孩子指针.
       curr_node.right_idx = old_node.right_idx;
@@ -695,20 +704,27 @@ class PresidentTree {
 
       /// 给当前节点加上差值.
       curr_node.val = old_node.val + diff;
+
+#undef new_child_node
+#undef old_child_node
     } else {
       /// 如果右子树需要更新
       assert(pos > mid);  /// 还是提前验证一下条件
 
       /// 方法是一样的, 反正"色即是空, 空即是色, 色即是空即是空即是色".
       auto new_child_idx = assignNode(), old_child_idx = old_node.right_idx;
-      auto &new_child_node = nodes[new_child_idx];
-      const auto &old_child_node = nodes[old_child_idx];
+#define new_child_node nodes[new_child_idx]
+#define old_child_node nodes[old_child_idx]
       curr_node.left_idx = old_node.left_idx;
       curr_node.right_idx = new_child_idx;
       update(val, pos, mid + 1, right_edge, old_child_idx, new_child_idx);
       auto diff = new_child_node.val - old_child_node.val;
       curr_node.val = old_node.val + diff;
+#undef new_child_node
+#undef old_child_node
     }
+#undef curr_node
+#undef old_node
   }
 
   /// 查询操作
@@ -827,9 +843,92 @@ class PresidentTree {
 
   /// 查询
   T query(size_t time, size_t left_target, size_t right_target) {
+    /// 这里`time`是第 time 个版本的线段树.
     return query(left_target, right_target, 1, size, roots[time]);
   }
 
   /// 获取版本的数量.
   size_t getVersionCount() { return roots.size(); }
+};
+
+/// 洛谷经典板子题: 静态区间第K小的元素.
+/// 通过这道题还需要离散化技术, 放在`hash_methods.cpp`中介绍了.
+/// 第K小的元素运用了基于桶排序的一种思想, 值得学习.
+///
+/// 理解这道题的关键之一是权值线段树,
+/// 也就是说这里我们绘制的是n次修改之后的权值线段树, 这一点尤其值得注意.
+/// 权值线段树是存储权重的线段树:
+/// 假设一个数组, 大小的范围是[1, 500], 那么,
+/// 我们的线段树需要存储这样的一个数组: 大小为500,
+/// arr[i]表明i在原数组中出现的次数.
+/// 这个时候, [i, j]的区间的和就代表介于[i, j]之间的数在数组中的总个数.
+/// 举个例子:
+/// 对于数组[1, 2, 1, 3, 3], 权值线段树的大小为3,
+/// 因为这个数组的数据范围是[1, 3].
+/// 同时, 线段树的结构如下:
+///      5      ---- 数组中有5个元素
+///     / \
+///    3   2    ---- [1, 3]被划分为[1, 2]和[3, 3], 其中处在[1, 2]的元素有三个.
+///   / \
+///  2   1      ---- 等于1的元素有两个, 2有一个
+///  而对于数据范围在[1, n]的数组, 如果在某个位置插入一个值为k的元素,
+///  就等于对线段树进行 diff = 1, pos = k 的单点增量更新.
+///  那我们这里维护的线段树, 第0个版本是我们手动插入的, 这个版本所有元素都是0,
+///  意味着在数组开头, 还没有包含任何元素的时候, 我们的权值数组中所有元素为0,
+///  即空数组中任意数值的元素都不存在.
+///  从1到n, 我们便利我们即将查询的数组, 并且每次插入一个元素.
+///  这个时候, 我们就得到了n + 1个独立的权值线段树, 当i从0到n时,
+///  分别是我们想要查询的数组的前i个元素组成的数组的权值线段树.
+class KthTree : public PresidentTree<size_t> {
+  /// 查找第k小的元素.
+  size_t kthElem(size_t k_remaining, size_t left_edge, size_t right_edge,
+                 size_t curr_left_idx, size_t curr_right_idx) {
+    /// 如果已经找到了叶子, 我们就知道了第k小一定在[i, i]之间,
+    /// 那我们直接返回i, 就是找到了.
+    if (left_edge == right_edge) {
+      return left_edge;
+    }
+
+    auto mid = (left_edge + right_edge) / 2;
+
+    /// 这里我懒得写了, 主要是变量太多, 不会命名.
+    /// 意图讲解一下:
+    /// 这里的意图就是分别获得当前节点的左孩子节点的前后版本的差值.
+    /// 相信看了主席树的讲解一定能通过意图理解这里的思路.
+    ///
+    /// 这里要获取差值的原因是这样的:
+    /// 这个差值就是待测区间内的大小从left_edge到mid的所有元素的数量.
+    /// 因为靠前的版本中, [left_edge, mid]区间中存在x个元素,
+    /// 靠后的版本中, [left_edge, mid]区间中存在y个元素,
+    /// y - x就意味着在中间的这一段中, [left_edge, mid]范围内的元素增加的个数.
+    /// 这里理解起来还是挺复杂的.
+    auto left_child_diff = nodes[nodes[curr_right_idx].left_idx].val -
+                           nodes[nodes[curr_left_idx].left_idx].val;
+
+    /// 总而言之, 如果k的大小还没有这个区间内的元素多,
+    /// 那么第k小的元素就在靠左的区间内.
+    if (k_remaining <= left_child_diff) {
+      return kthElem(k_remaining, left_edge, mid, nodes[curr_left_idx].left_idx,
+                     nodes[curr_right_idx].left_idx);
+    }
+    /// 如果k的大小还要多, 那么第k小的元素一定处在右半区间.
+    /// 且是第(k减去左半区间的元素个数)个.
+    else {
+      return kthElem(k_remaining - left_child_diff, mid + 1, right_edge,
+                     nodes[curr_left_idx].right_idx,
+                     nodes[curr_right_idx].right_idx);
+    }
+  }
+
+ public:
+  /// 两个树的版本分别为l - 1 和 r.
+  /// 查找的大小为整个值域.
+  size_t kthElem(size_t left, size_t right, size_t k) {
+    return kthElem(k, 1, size, roots[left - 1], roots[right]);
+  }
+
+  KthTree(size_t max) : PresidentTree(max, 0) { roots.emplace_back(0); }
+
+  /// 给数组增加一个新元素, 方案就是给这个新元素的值为下标的点的权重加一.
+  void add(size_t elem) { updateDiff(1, elem); }
 };
