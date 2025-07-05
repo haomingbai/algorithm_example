@@ -1,0 +1,39 @@
+/**
+ * @file concepts.cpp
+ * @brief 
+ * @author Haoming Bai <haomingbai@hotmail.com>
+ * @date   2025-07-06
+ *
+ * Copyright © 2025 Haoming Bai
+ * SPDX-License-Identifier: MIT
+ *
+ * @details
+ */
+
+#include <concepts>
+#include <cstddef>
+
+template <typename T>
+concept Addable = requires(T a, T b) {
+  { a + b } -> std::convertible_to<T>;
+};
+
+template <typename T>
+concept Subtractable = requires(T a, T b) {
+  { a - b } -> std::convertible_to<T>;
+};
+
+template <typename T>
+concept Accumulateable = requires(T a, size_t b) {
+  { a * b } -> std::convertible_to<T>;
+};
+
+template <typename Container, typename E>
+concept RandomAccessContainer =
+    requires(const Container &c, std::size_t index) {
+      // 要求有size()成员函数，返回类型可转换为size_t
+      { c.size() } -> std::convertible_to<std::size_t>;
+
+      // 要求支持随机访问（下标操作符）
+      { c[index] } -> std::convertible_to<E>;
+    };

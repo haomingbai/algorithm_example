@@ -13,10 +13,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <concepts>
 #include <cstddef>
 #include <ctime>
 #include <vector>
+
+#include "concepts.cpp"
 
 /**
  *  线段树（Segment Tree）是一种二叉树结构，用于高效地执行区间查询与更新操作。
@@ -53,40 +54,19 @@
 /// 通过这种方法, 我们就可以对任何一种基本的数据类型进行类似运算符重载的操作.
 /// 在我们的模板中, 线段树进行的是求和运算,
 /// 因为这种运算可以最好地展示出线段树的特征.
-template <typename T>
-concept Addable = requires(T a, T b) {
-  { a + b } -> std::convertible_to<T>;
-};
 
 /// 如果线段树需要进行单点的更新, 那么最通俗的接口无疑是将某一点更新为某个值,
 /// 如果是这样做, 我们就需要知道, 在这个点的位置, 这个节点到底更新了多少.
 /// 因此, 在这样的接口下面, 我们需要知道加法运算的逆运算, 也就是求逆元的运算.
 /// 所以`update`接口要求类型参数具有减法的性质.
-template <typename T>
-concept Subtractable = requires(T a, T b) {
-  { a - b } -> std::convertible_to<T>;
-};
 
 /// 累加运算, 这是我选取加法的重要原因: 乘法需要用作累加器,
 /// 但是我不希望看到太多重载. 在区间更新接口`updateDiff`部分,
 /// 我们可以看到, 当我们不能给一个节点打上懒惰标签时,
 /// 我们需要进行一种累加的运算, 即快速将运算重复`size_t n`次的运算.
 /// 这种运算对于lazy_tag功能格外重要.
-template <typename T>
-concept Accumulateable = requires(T a, size_t b) {
-  { a * b } -> std::convertible_to<T>;
-};
 
-/// 容器类型, 拿来写泛型很有用
-template <typename Container, typename E>
-concept RandomAccessContainer =
-    requires(const Container &c, std::size_t index) {
-      // 要求有size()成员函数，返回类型可转换为size_t
-      { c.size() } -> std::convertible_to<std::size_t>;
-
-      // 要求支持随机访问（下标操作符）
-      { c[index] } -> std::convertible_to<E>;
-    };
+/// RandomAccessContainer作为容器类型, 拿来写泛型很有用
 
 /// 朴素版本的线段树, 类型参数要求加法运算
 template <Addable DataType>
