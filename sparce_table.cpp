@@ -21,6 +21,25 @@
 
 #include "concepts.cpp"
 
+/*
+ * Sparse Table (ST表) 简介：
+ * ST表是一种静态区间查询的数据结构，适用于可交换、可复合的区间操作（如最值、gcd等）。
+ * 它通过预处理 f[i][k] 表示以 i 为起点、长度为 2^k 的区间结果，
+ * 预处理时间 O(N log N)，查询时间 O(1)，空间 O(N log N)。
+ *
+ * 示例结构（N=8, 最大 k=3）：
+ *            k=0   k=1   k=2   k=3
+ *        -----------------------------
+ * f[i][k]:  a[0] | min(a[0],a[1]) | ... | ...
+ * i = 0    a[0]   a[0,1]           a[0,3]   a[0,7]
+ * i = 1    a[1]   a[1,2]           a[1,3]   -
+ * i = 2    a[2]   a[2,3]           -        -
+ * ...
+ *
+ * 查询区间 [L,R] 时令 len = R-L+1, k = floor(log2(len))，
+ * 则答案 = combine(f[L][k], f[R-2^k+1][k])。
+ */
+
 template <typename T>
 class SparseTable {
  protected:
