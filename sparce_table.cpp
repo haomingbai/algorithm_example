@@ -143,20 +143,3 @@ class SparseTable {
     return res;
   }
 };
-
-int main() {
-  size_t len, query_num;
-  std::cin >> len >> query_num;
-
-  std::vector<int> arr(len);
-  for (size_t i = 0; i < len; i++) {
-    std::cin >> arr[i];
-  }
-  SparseTable<int> table(arr);
-
-  for (size_t i = 0; i < query_num; i++) {
-    size_t left, right;
-    std::cin >> left >> right;
-    std::cout << table.query(left - 1, right - 1) << std::endl;
-  }
-}
