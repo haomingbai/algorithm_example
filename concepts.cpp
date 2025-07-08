@@ -1,6 +1,6 @@
 /**
  * @file concepts.cpp
- * @brief 
+ * @brief
  * @author Haoming Bai <haomingbai@hotmail.com>
  * @date   2025-07-06
  *
@@ -24,8 +24,13 @@ concept Subtractable = requires(T a, T b) {
 };
 
 template <typename T>
-concept Accumulateable = requires(T a, size_t b) {
+concept Multiplyable = requires(T a, T b) {
   { a * b } -> std::convertible_to<T>;
+};
+
+template <typename T>
+concept Dividable = requires(T a, T b) {
+  { a / b } -> std::convertible_to<T>;
 };
 
 template <typename Container, typename E>
@@ -37,3 +42,33 @@ concept RandomAccessContainer =
       // 要求支持随机访问（下标操作符）
       { c[index] } -> std::convertible_to<E>;
     };
+
+template <typename T1, typename T2>
+concept AddableWith = requires(T1 a, T2 b) {
+  { a + b } -> std::convertible_to<std::common_type_t<T1, T2>>;
+};
+
+template <typename T1, typename T2>
+concept SubtractableWith = requires(T1 a, T2 b) {
+  { a - b } -> std::convertible_to<std::common_type_t<T1, T2>>;
+};
+
+template <typename T1, typename T2>
+concept MultiplyableWith = requires(T1 a, T2 b) {
+  { a * b } -> std::convertible_to<std::common_type_t<T1, T2>>;
+};
+
+template <typename T1, typename T2>
+concept DividableWith = requires(T1 a, T2 b) {
+  { a / b } -> std::convertible_to<std::common_type_t<T1, T2>>;
+};
+
+template <typename T>
+concept Accumulateable = requires(T a, size_t b) {
+  { a * b } -> std::convertible_to<T>;
+};
+
+template <typename T>
+concept Partable = requires(T a, size_t b) {
+  { a / b } -> std::convertible_to<T>;
+};
