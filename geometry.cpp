@@ -14,7 +14,6 @@
 #include <cassert>
 #include <cmath>
 #include <concepts>
-#include <cstddef>
 #include <cstdlib>
 #include <numbers>
 #include <stdexcept>
@@ -67,6 +66,11 @@ constexpr int sign(T x) {
 template <typename T, typename U>
   requires(
       std::is_floating_point_v<decltype(std::declval<T>() - std::declval<U>())>)
+constexpr int fcmp(T x, U y) {
+  return sign(x - y);
+}
+
+template <typename T, typename U>
 constexpr int fcmp(T x, U y) {
   return sign(x - y);
 }
@@ -250,34 +254,37 @@ auto operator-(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 template <typename T1, typename T2>
   requires(MultiplyableWith<T1, T2>)
 auto operator*(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
-    -> Vector2D<decltype(std::declval<T1>() * std::declval<T2>())> {
+    -> decltype(std::declval<T1>() * std::declval<T2>()) {
   using RT = decltype(std::declval<T1>() * std::declval<T2>());
-  Vector2D<RT> res(p1.x * p2.x, p1.y * p2.y);
+  RT res(p1.x * p2.x + p1.y * p2.y);
   return res;
 }
 
 // 要求可以实现累加, 这里的语义是将一个向量翻倍.
 // 这里嘀咕一句, 这里的向量可以去用来实例化旁边的线段树了...
 // 加法和减法都有了, 累加也有了...
-template <typename T>
-  requires(Accumulateable<T>)
-Vector2D<T> operator*(const Vector2D<T> &p, size_t k) {
-  Vector2D<T> res(p.x * k, p.y * k);
+template <typename T, typename U>
+  requires MultiplyableWith<T, U>
+auto operator*(const Vector2D<T> &p, U k)
+    -> Vector2D<decltype(std::declval<T>() * std::declval<U>())> {
+  using RT = Vector2D<decltype(std::declval<T>() * std::declval<U>())>;
+  RT res(p.x * k, p.y * k);
   return res;
 }
 
 // 除法实现...
-template <typename T>
-  requires(Partable<T>)
-Vector2D<T> operator/(const Vector2D<T> &p, size_t k) {
+template <typename T, typename U>
+  requires(DividableWith<T, U>)
+auto operator/(const Vector2D<T> &p, U k)
+    -> Vector2D<decltype(std::declval<T>() / std::declval<U>())> {
   Vector2D<T> res(p.x / k, p.y / k);
   return res;
 }
 
 // 辅助萃取乘法结果的别名模板
 template <typename T, typename U>
-using multiply_result_t = std::common_type_t<
-    std::decay_t<decltype(std::declval<T>() * std::declval<U>())>>;
+using multiply_result_t =
+    std::decay_t<decltype(std::declval<T>() * std::declval<U>())>;
 
 // 复合概念：T*U 合法，且 (T*U) 的类型可减
 template <typename T, typename U>
@@ -306,20 +313,10 @@ auto crossProductValue(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 // 反而浮点让整个过程更麻烦...
 template <typename T1, typename T2>
   requires(requires(Vector2D<T1> v1, Vector2D<T2> v2) {
-            crossProductValue(v1, v2);
-          }) && std::is_floating_point_v<decltype(std::declval<T1>() -
-                                                  std::declval<T2>())>
-bool isParallel(const Vector2D<T1> &v1, const Vector2D<T2> &v2) {
-  return sign(crossProductValue(v1, v2)) == 0;
-}
-
-// 这里是整形版本, 这个版本显然直接判断就可以了.
-template <typename T1, typename T2>
-  requires(requires(Vector2D<T1> v1, Vector2D<T2> v2) {
     crossProductValue(v1, v2);
   })
 bool isParallel(const Vector2D<T1> &v1, const Vector2D<T2> &v2) {
-  return (crossProductValue(v1, v2)) == 0;
+  return sign(crossProductValue(v1, v2)) == 0;
 }
 
 // 二维线基础, 这里将线和线段进行分离.
@@ -343,16 +340,18 @@ struct LineBase2D {
   // 算个delta, 对一些数要求了乘法, 加法和减法, 一般的有符号整数和浮点肯定能过.
   // 这里就是点到直线距离里面的判别式, 就是那个 delta / sqrt(a ^ 2 + b ^ 2)
   template <typename U>
-    requires Multiplyable<T> &&
-             MultiplyableWith<decltype(std::declval<T>() * std::declval<T>()),
-                              U> &&
-             Subtractable<decltype(std::declval<T>() * std::declval<T>())> &&
-             Subtractable<T> &&
-             Addable<decltype((std::declval<T>() * std::declval<U>()))> &&
-             AddableWith<decltype((std::declval<T>() * std::declval<U>())),
-                         decltype(std::declval<T>() * std::declval<T>())>
-  auto delta(const Point2D<U> &p)
-      -> decltype(std::declval<T>() * std::declval<U>()) const {
+  // 约束直接描述函数体内的核心操作
+    requires requires(const Point2D<T> &pt, const Point2D<U> &pu) {
+      // 检查 crossProductValue 是否有效，因为 delta 内部的 c 就是
+      // crossProductValue
+      { crossProductValue(pt, pt) };
+      // 检查最终的表达式 a * p.x + b * p.y + c 是否有效
+      {
+        (pt.y - pt.y) * pu.x + (pt.x - pt.x) * pu.y + crossProductValue(pt, pt)
+      };
+    }
+  auto delta(const Point2D<U> &p) const
+      -> decltype(std::declval<T>() * std::declval<U>()) {
     // 这里是获得直线的一般式的算法.
     // ref: https://blog.csdn.net/madbunny/article/details/43955883
     auto a = p2.y - p1.y, b = p1.x - p2.x;
@@ -365,7 +364,7 @@ struct LineBase2D {
 
   // 获得对应直线的一般式, 这里的约束比较长,
   // 但是对于常见的数据类型应该都可以通过.
-  auto generalForm()
+  auto generalForm() const
       -> std::tuple<decltype(std::declval<T>() - std::declval<T>()),
                     decltype(std::declval<T>() - std::declval<T>()),
                     decltype(std::declval<T>() * std::declval<T>() -
@@ -390,13 +389,14 @@ struct LineBase2D {
 
   template <typename U>
     requires std::is_floating_point_v<T> && std::is_floating_point_v<U>
-  auto project(const Point2D<U> &p) -> Point2D<std::common_type<T, U>> {
-    using DT = std::common_type<T, U>;
+  auto project(const Point2D<U> &p) const
+      -> Point2D<decltype(std::declval<T>() * std::declval<U>())> {
+    using DT = decltype(std::declval<T>() * std::declval<U>());
 
     // 这里是算出一个系数k, 这个系数k通过计算向量在目标向量上的投影长度,
     // 进而计算出从起点到投影在两点构成的线段上的占比.
     // 思路还是来源与清华大学的算法竞赛教程, 作者是罗永军教授等人.
-    DT k = ((p2 - p1) * (p - p1)) / (p2 - p1).length2();
+    DT k = ((p2 - p1) * (p - p1)) / ((p2 - p1).length2());
 
     return p1 + (p2 - p1) * k;
   }
@@ -419,6 +419,7 @@ template <typename T>
 struct Line2D : public LineBase2D<T> {
   using LineBase2D<T>::p1;
   using LineBase2D<T>::p2;
+  using LineBase2D<T>::delta;
 
   // 点方向式表示直线.
   template <typename PointDataType, typename FloatType>
@@ -477,8 +478,8 @@ struct Line2D : public LineBase2D<T> {
     } else if (sign(b) == 0) {
       // 这个就是k为无穷的情况, 需要单独处理.
       // k为无穷的时候, 整个直线是一条竖直线.
-      auto y_0 = static_cast<T>(0), y_1 = static_cast<T>(0);
-      auto x = static_cast<T>(-a / c);
+      auto y_0 = static_cast<T>(0), y_1 = static_cast<T>(1);
+      auto x = static_cast<T>(-c / a);
 
       p1 = Point2D<T>(x, y_0), p2 = Point2D<T>(x, y_1);
     } else [[likely]] {
@@ -564,9 +565,11 @@ struct Line2D : public LineBase2D<T> {
   }
 
   template <typename F>
-    requires(std::abs(std::declval<T>()))
-  auto distanceWith(const Point2D<T> &p)
-      -> decltype(std::sqrt(std::declval<T>())) const {
+    requires requires(T t) {
+      { (std::abs(t)) };
+    }
+  auto distanceWith(const Point2D<F> &p) const
+      -> decltype(std::sqrt(std::declval<T>())) {
     // 这里是获得直线的一般式的算法.
     // ref: https://blog.csdn.net/madbunny/article/details/43955883
     auto a = p2.y - p1.y, b = p1.x - p2.x;
@@ -592,15 +595,16 @@ struct Line2D : public LineBase2D<T> {
     auto [a1, b1, c1] = this->generalForm();
     auto [a2, b2, c2] = l.generalForm();
 
-    return std::abs(c1 - c2) / std::sqrt(a1 * a1 - b1 * b1);
+    return std::abs(c1 - c2) / std::sqrt(a1 * a1 + b1 * b1);
   }
 
   // 两条直线的交点.
   // 约束类型随便写一点, 稍微测试一下就好, 反正浮点的圈子就那么大.
   template <typename U>
     requires std::is_convertible_v<U, T>
-  auto crossingPoint(const Line2D<U> &l) -> Point2D<std::common_type<T, U>> const {
-    using DataType = std::common_type<T, U>;
+  auto crossingPoint(const Line2D<U> &l) const
+      -> Point2D<decltype(std::declval<T>() * std::declval<U>())> {
+    using DataType = decltype(std::declval<T>() * std::declval<U>());
 
     // ref: 算法竞赛 清华大学出版社
     DataType s1 = crossProductValue(p2 - p1, l.p1 - p1),
@@ -616,7 +620,7 @@ struct Line2D : public LineBase2D<T> {
   template <typename U>
   int relationWith(const Line2D<U> l) const {
     if (isParallel(this->direction(), l.direction())) {
-      if (sign(l.delta(this->p1)) == 0) {
+      if (sign(l.delta(p1)) == 0) {
         // 重和
         return 1;
       } else {
@@ -676,18 +680,13 @@ struct LineSegment2D : public LineBase2D<T> {
 
   // 线段之间的相交判定, 这里只讲浮点数的版本, 普通版逻辑相同, 只有细小差别.
   template <typename U>
-    requires requires(LineSegment2D<T> l, LineSegment2D<U> p) {
-      { l.delta(p.p1) };
-      { p.delta(l.p1) };
+    requires requires(const LineSegment2D<T> &l, const LineSegment2D<U> &s) {
+      // 检查 delta 调用
+      { l.delta(s.p1) };
+      { s.delta(l.p1) };
     } &&
-             requires(T t, U u) {
-               { t < u };
-               { u < t };
-               { t < t };
-               { u < u };
-             } &&
-             std::is_floating_point_v<decltype(std::declval<T>() *
-                                               std::declval<U>())>
+             // 使用标准概念，表示 T 和 U 之间可以进行全序比较
+             std::totally_ordered_with<T, U>
   bool cross(const LineSegment2D<U> &seg) const {
     // 使用delta进行计算, 如果delta异号, 那么说明两点在直线异侧, 可能相交.
     auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
@@ -723,50 +722,13 @@ struct LineSegment2D : public LineBase2D<T> {
     return true;
   }
 
-  // 计算几何, 整数版本, 这里去除了sign判定相等的逻辑, 但是总体思路是一样的.
-  template <typename U>
-    requires requires(LineSegment2D<T> l, LineSegment2D<U> p) {
-      { l.delta(p.p1) };
-      { p.delta(l.p1) };
-    } && requires(T t, U u) {
-      { t < u };
-      { u < t };
-      { t < t };
-      { u < u };
-    }
-  bool cross(const LineSegment2D<U> &seg) const {
-    auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
-    if (d_a1 * d_a2 > 0) {
-      return false;
-    }
-
-    auto d_b1 = seg.delta(p1), d_b2 = seg.delta(p2);
-    if (d_b1 * d_b2 > 0) {
-      return false;
-    }
-
-    if ((d_a1) == 0 && (d_a2) == 0 && (d_b1) == 0 && (d_b2) == 0) {
-      // 计算投影范围
-      // 这里的语法是C++17的结构化绑定.
-      auto [this_xmin, this_xmax] = std::minmax(p1.x, p2.x);
-      auto [this_ymin, this_ymax] = std::minmax(p1.y, p2.y);
-      auto [seg_xmin, seg_xmax] = std::minmax(seg.p1.x, seg.p2.x);
-      auto [seg_ymin, seg_ymax] = std::minmax(seg.p1.y, seg.p2.y);
-
-      // 双投影检查（必须同时满足）
-      bool x_overlap = (this_xmax >= seg_xmin) && (seg_xmax >= this_xmin);
-      bool y_overlap = (this_ymax >= seg_ymin) && (seg_ymax >= this_ymin);
-      return x_overlap && y_overlap;
-    }
-
-    return true;
-  }
-
   // 这个接口是用来判断一个点是否在我们的目标线段上.
   template <typename U>
-    requires requires(Vector2D<T> v1, Vector2D<U> v2) {
-      { sign(v1.cross(v2)) } -> std::convertible_to<int>;
-      { sign(v1 * v2) } -> std::convertible_to<int>;
+    requires requires(const Point2D<T> &pt1, const Point2D<U> &pu) {
+      // 检查 crossProductValue(Point<T>, Point<U>) 是否有效
+      { crossProductValue(pt1, pu) };
+      // 检查 dotProduct(Point<T>, Point<U>) 是否有效 (这里用 * 代替)
+      { pt1 * pu };
     }
   bool isOnLineSegment(const Point2D<U> &p) const {
     // ref: 算法竞赛 清华大学出版社
@@ -782,8 +744,10 @@ struct LineSegment2D : public LineBase2D<T> {
   // 这个函数求得的是点到线段的距离.
   template <typename U>
   // 因为根式的存在, 这里参与的数据类型必须是浮点数.
-    requires std::is_floating_point_v<std::common_type<T, U>>
-  auto distanceWith(const Point2D<U> &p) -> std::common_type<T, U> const {
+    requires std::is_floating_point_v<decltype(std::declval<T>() *
+                                               std::declval<U>())>
+  auto distanceWith(const Point2D<U> &p) const
+      -> decltype(std::declval<T>() * std::declval<U>()) {
     // 如果p1p和p1p2方向相反或者p2p和p2p1方向相反, 那么点在线段的竖向两侧,
     // 返回目标点到端点的最小距离.
     if (sign((p2 - p1) * (p - p1)) <= 0 || sign((p1 - p2) * (p - p2)) <= 0) {
