@@ -10,10 +10,12 @@
  * @details
  */
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <cstdlib>
 #include <numbers>
 #include <stdexcept>
 #include <type_traits>
@@ -48,9 +50,22 @@ constexpr int sgn(T x) {
   }
 }
 
+// 为了防止模板写错, 这里给整数也写一个.
+template <typename T>
+constexpr int sgn(T x) {
+  if (x < 0) {
+    return -1;
+  } else if (x > 0) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 // 工具函数, 浮点数比较大小.
 template <typename T, typename U>
-  requires(std::is_floating_point_v<decltype(T{} - U{})>)
+  requires(
+      std::is_floating_point_v<decltype(std::declval<T>() - std::declval<U>())>)
 constexpr int fcmp(T x, U y) {
   return sgn(x - y);
 }
@@ -69,7 +84,7 @@ concept Rotateable =
       { std::cos(x) } -> std::convertible_to<F>;
     } &&
 
-    // 3) T{} * sin(x) / cos(x) 合法，并返回可转换回 T
+    // 3) std::declval<T>() * sin(x) / cos(x) 合法，并返回可转换回 T
     requires(T t, F x) {
       { t * std::sin(x) } -> std::convertible_to<T>;
       { t * std::cos(x) } -> std::convertible_to<T>;
@@ -102,6 +117,9 @@ struct Point2D {
   Point2D(Point2D<T2> &&another) : x(another.x), y(another.y) {}
 
   // 相等判定, 这里因为涉及类型的变换, 所以加法和减法等都在外部定义
+  // 注意: 在C++20之前, ==和!=并不是一种运算, 需要手动重载,
+  // 但是我们这里已经是C++20了, 所以就不需要了.
+  // 我相信在GCC 15已经发布的当下, C++20会更加普及.
   template <typename U>
   bool operator==(const Point2D<U> &p2) const
     requires std::is_floating_point_v<T> && std::is_floating_point_v<U> &&
@@ -117,13 +135,20 @@ struct Point2D {
     return (x == p2.x) && (y == p2.y);
   }
 
+  // 向量的取负语义.
+  Point2D<T> operator-() const
+    requires Negativable<T>
+  {
+    return Point2D<T>(-x, -y);
+  }
+
   // 两点之间的距离, 变成成员函数主要是怕和std::distance撞了
   // 毕竟竞赛选手的恶习之一就是using namespace std;
   // 这里作为成员函数, 语义同样明确, 但是避免和标准空间发生冲突.
   // 因为返回类型较为复杂, 所以使用了后置的类型声明, auto不进接口是美德.
   template <typename T2>
   auto distanceWith(const Vector2D<T2> &p2)
-      -> decltype(std::sqrt(T{} - T2{})) const {
+      -> decltype(std::sqrt(std::declval<T>() - std::declval<T2>())) const {
     auto xdiff = x - p2.x, ydiff = y - p2.y;
     return std::sqrt(xdiff * xdiff + ydiff * ydiff);
   }
@@ -138,8 +163,10 @@ struct Point2D {
   // new_y = xsin(t) + ycos(t).
   template <typename F>
     requires Rotateable<T, F>
-  auto rotateFor(const F rad) const -> Vector2D<decltype(T{} * std::sin(F{}))> {
-    using ReturnType = Vector2D<decltype(T{} * std::sin(F{}))>;
+  auto rotateFor(const F rad) const
+      -> Vector2D<decltype(std::declval<T>() * std::sin(std::declval<F>()))> {
+    using ReturnType =
+        Vector2D<decltype(std::declval<T>() * std::sin(std::declval<F>()))>;
     auto new_x = x * std::cos(rad) - y * std::sin(rad),
          new_y = x * std::sin(rad) + y * std::cos(rad);
     return ReturnType(new_x, new_y);
@@ -149,17 +176,19 @@ struct Point2D {
   // 因为伟大的 ABDUL SAMAD KHAN 教授, 我对于范数的概念很不熟悉,
   // 为了避免贻笑大方之家, 我这里没有采用规范的norm(范数)的称谓,
   // 同时也是方便使用者调用.
-  auto length() const -> decltype(std::sqrt(T{}))
+  auto length() const -> decltype(std::sqrt(std::declval<T>()))
     requires(requires(T a, T b) { std::sqrt(a * a + b * b); })
   {
     return std::sqrt(x * x + y * y);
   }
 
   // 单位向量.
-  auto unit() const -> Point2D<decltype(T{} / std::sqrt(T{}))>
+  auto unit() const
+      -> Vector2D<decltype(std::declval<T>() / std::sqrt(std::declval<T>()))>
     requires(requires(T x, T y) { x / std::sqrt(x * x + y * y); })
   {
-    using ReturnType = Point2D<decltype(T{} / std::sqrt(T{}))>;
+    using ReturnType =
+        Vector2D<decltype(std::declval<T>() / std::sqrt(std::declval<T>()))>;
     auto new_x = x / length();
     auto new_y = y / length();
     return ReturnType(new_x, new_y);
@@ -175,7 +204,8 @@ struct Point2D {
   }
 
   // 单位法向量, 这里就要求比较高了... .
-  auto unitNormal() const -> Point2D<decltype(T{} / std::sqrt(T{}))>
+  auto unitNormal() const
+      -> Point2D<decltype(std::declval<T>() / std::sqrt(std::declval<T>()))>
     requires(requires(T x, T y) { x / std::sqrt(x * x + y * y); })
   {
     // 链式调用, 产生一个临时对象, 但是对于基本数据类型, 开销尚可接受.
@@ -191,8 +221,8 @@ using Vector2D = Point2D<T>;
 template <typename T1, typename T2>
   requires(AddableWith<T1, T2>)
 auto operator+(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
-    -> Vector2D<decltype(T1{} + T2{})> {
-  using RT = decltype(T1{} + T2{});
+    -> Vector2D<decltype(std::declval<T1>() + std::declval<T2>())> {
+  using RT = decltype(std::declval<T1>() + std::declval<T2>());
   Vector2D<RT> res(p1.x + p2.x, p1.y + p2.y);
   return res;
 }
@@ -201,8 +231,8 @@ auto operator+(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 template <typename T1, typename T2>
   requires(SubtractableWith<T1, T2>)
 auto operator-(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
-    -> Vector2D<decltype(T1{} - T2{})> {
-  using RT = decltype(T1{} - T2{});
+    -> Vector2D<decltype(std::declval<T1>() - std::declval<T2>())> {
+  using RT = decltype(std::declval<T1>() - std::declval<T2>());
   Vector2D<RT> res(p1.x - p2.x, p1.y - p2.y);
   return res;
 }
@@ -212,8 +242,8 @@ auto operator-(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 template <typename T1, typename T2>
   requires(MultiplyableWith<T1, T2>)
 auto operator*(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
-    -> Vector2D<decltype(T1{} * T2{})> {
-  using RT = decltype(T1{} * T2{});
+    -> Vector2D<decltype(std::declval<T1>() * std::declval<T2>())> {
+  using RT = decltype(std::declval<T1>() * std::declval<T2>());
   Vector2D<RT> res(p1.x * p2.x, p1.y * p2.y);
   return res;
 }
@@ -258,7 +288,8 @@ concept MultiplyThenSubtractable =
 template <typename T1, typename T2>
   requires(MultiplyThenSubtractable<T1, T2>)
 auto crossProductValue(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
-    -> decltype((T1{} * T2{}) - (T1{} * T2{})) {
+    -> decltype((std::declval<T1>() * std::declval<T2>()) -
+                (std::declval<T1>() * std::declval<T2>())) {
   return p1.x * p2.y - p1.y * p2.x;
 }
 
@@ -268,7 +299,8 @@ auto crossProductValue(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 template <typename T1, typename T2>
   requires(requires(Vector2D<T1> v1, Vector2D<T2> v2) {
             crossProductValue(v1, v2);
-          }) && std::is_floating_point_v<decltype(T1{} - T2{})>
+          }) && std::is_floating_point_v<decltype(std::declval<T1>() -
+                                                  std::declval<T2>())>
 bool isParallel(const Vector2D<T1> &v1, const Vector2D<T2> &v2) {
   return sgn(crossProductValue(v1, v2)) == 0;
 }
@@ -296,7 +328,40 @@ struct LineBase2D {
   template <typename U>
     requires std::is_convertible_v<U, T>
   LineBase2D(const LineBase2D<U> &line) : p1(line.p1), p2(line.p2) {}
+
+  // 对于纯数据, 默认构造必须有, 否则继承的时候有你好果汁.
+  LineBase2D() {};
+
+  // 算个delta, 对一些数要求了乘法, 加法和减法, 一般的有符号整数和浮点肯定能过.
+  // 这里就是点到直线距离里面的判别式, 就是那个 delta / sqrt(a ^ 2 + b ^ 2)
+  template <typename U>
+    requires MultiplyableWith<T, U> && Multiplyable<T> &&
+             Multiplyable<decltype(std::declval<T>() * std::declval<U>())> &&
+             Subtractable<decltype(std::declval<T>() * std::declval<U>())> &&
+             Addable<T> &&
+             AddableWith<T, decltype((std::declval<T>() * std::declval<U>()))>
+  auto delta(const Point2D<U> &p)
+      -> decltype(std::declval<T>() * std::declval<U>()) {
+    // 这里是获得直线的一般式的算法.
+    // ref: https://blog.csdn.net/madbunny/article/details/43955883
+    auto a = p2.y - p1.y, b = p1.x - p2.x;
+    auto c = p2.x * p1.y - p1.x * p2.y;
+
+    using RT = decltype(std::declval<T>() * std::declval<U>());
+    RT res = a * p.x + b * p.y + c;
+    return res;
+  }
 };
+
+// 平行检测, 注意这里共线也是被检测出平行的.
+template <typename T1, typename T2>
+bool isParallel(const LineBase2D<T1> &l1, const LineBase2D<T2> &l2) {
+  return isParallel(l1.p2 - l1.p1, l2.p2 - l2.p1);
+}
+
+// 类型声明, 方便后续函数声明.
+template <typename T>
+struct LineSegment2D;
 
 // 二维直线, 因为直线是连续的, 所以难免涉及浮点数运算, 除非上高精度.
 // 那高精度这里就不考虑了, 高精度和计算几何直接松耦合速度太慢狗都不用.
@@ -306,7 +371,7 @@ struct Line2D : public LineBase2D<T> {
   using LineBase2D<T>::p1;
   using LineBase2D<T>::p2;
 
-  // 点斜式表示直线.
+  // 点方向式表示直线.
   template <typename PointDataType, typename FloatType>
     requires(std::is_convertible_v<PointDataType, T> &&
              std::is_floating_point_v<FloatType>)
@@ -360,10 +425,17 @@ struct Line2D : public LineBase2D<T> {
     [[unlikely]] if (sgn(a) == 0 && sgn(b) == 0) {
       throw std::invalid_argument(
           "In ax + by + c, a and b cannot both be zero.");
-    } else if (sgn(a) == 0) {
-      auto y = (T)(-c) / (T)(b);
+    } else if (sgn(b) == 0) {
+      // 这个就是k为无穷的情况, 需要单独处理.
+      // k为无穷的时候, 整个直线是一条竖直线.
+      auto y_0 = static_cast<T>(0), y_1 = static_cast<T>(0);
+      auto x = static_cast<T>(-a / c);
+
+      p1 = Point2D<T>(x, y_0), p2 = Point2D<T>(x, y_1);
     } else [[likely]] {
-      auto x_0 = (T)(0), x_1 = (T)(1);
+      // 简单的kx+b模式, 这里还是不要搞事情.
+      // 直线的数据类型一定是浮点的, 所以才能这么除.
+      auto x_0 = static_cast<T>(0), x_1 = static_cast<T>(1);
       auto y_0 = -(a * x_0 + c) / b, y_1 = -(a * x_1 + c) / b;
 
       p1 = Point2D<T>(x_0, y_0), p2 = Point2D<T>(x_1, y_1);
@@ -400,6 +472,191 @@ struct Line2D : public LineBase2D<T> {
       return false;
     }
   }
+
+  // 两个点如果连线, 是否可以穿过直线.
+  template <typename T1, typename T2>
+    requires MultiplyableWith<T, T1> && MultiplyableWith<T, T2> &&
+             Multiplyable<T> &&
+             MultiplyableWith<decltype(std::declval<T>() * std::declval<T1>()),
+                              decltype(std::declval<T>() * std::declval<T2>())>
+  bool cross(const Point2D<T1> &p1, const Point2D<T2> &p2) {
+    auto d1 = delta(p1), d2 = delta(p2);
+
+    if (sgn(d1 * d2) > 0) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  template <typename U>
+  bool cross(const LineSegment2D<U> &l);
+
+  Vector2D<T> direction() { return p2 - p1; }
+
+  Vector2D<T> directionUnit() { return direction().unit(); }
+
+  template <typename U>
+  bool cross(const Line2D<U> &l) {
+    if (isParallel(this->direction(), l.direction())) {
+      if (sgn(this->delta(l.p1)) == 0) {
+        return true;
+      }
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  template <typename F>
+    requires(std::abs(std::declval<T>()))
+  auto distanceWith(const Point2D<T> &p)
+      -> decltype(std::sqrt(std::declval<T>())) {
+    // 这里是获得直线的一般式的算法.
+    // ref: https://blog.csdn.net/madbunny/article/details/43955883
+    auto a = p2.y - p1.y, b = p1.x - p2.x;
+    auto c = p2.x * p1.y - p1.x * p2.y;
+
+    // 获得判别式
+    auto delta = this->delta(p);
+
+    // 进行距离计算.
+    auto res = std::abs(delta) / std::sqrt(a * a + b * b);
+    return res;
+  }
 };
+
+template <typename T>
+struct LineSegment2D : public LineBase2D<T> {
+  using LineBase2D<T>::p1;
+  using LineBase2D<T>::p2;
+
+  // 拷贝构造.
+  // 现在的情况已经考虑到线段和直线的转换了...
+  template <typename U>
+    requires std::is_convertible_v<U, T>
+  LineSegment2D(const LineBase2D<U> &line) : LineBase2D<T>(line) {}
+
+  // 同样从两点构造
+  template <typename T1, typename T2>
+    requires std::is_convertible_v<T1, T> && std::is_convertible_v<T2, T>
+  LineSegment2D(const Point2D<T1> &p1, const Point2D<T2> &p2)
+      : LineBase2D<T>(p1, p2) {
+    assert(p1 != p2);
+  }
+
+  // 点方向和长度构造线段
+  template <typename P, typename F1, typename F2>
+    requires std::is_convertible_v<P, T> && std::is_floating_point_v<F1> &&
+             std::is_floating_point_v<F2>
+  LineSegment2D(const Point2D<P> &p, F1 rad, F2 len) {
+    p1 = Point2D<T>(p);
+
+    // 同样先调整参数, 只是这里单位是2pi.
+    while (sgn(rad) < 0) {
+      rad += 2 * std::numbers::pi_v<F1>;
+    }
+    while (fcmp(rad, 2 * std::numbers::pi_v<F1>) > 0) {
+      rad -= 2 * std::numbers::pi_v<F1>;
+    }
+
+    // 找到对应终点.
+    F1 unit_dx = std::cos(rad), unit_dy = std::sin(rad);
+    p2 = p1 + Point2D<T>(unit_dx * len, unit_dy * len);
+  }
+
+  // 这里判定相等, 只有完全重合是相等.
+  template <typename U>
+    requires std::is_convertible_v<U, T>
+  bool operator==(const LineSegment2D<U> &line) {
+    return (p1 == line.p1 && p2 == line.p2) || (p1 == line.p2 && p2 == line.p1);
+  }
+
+  // 线段之间的相交判定, 这里只讲浮点数的版本, 普通版逻辑相同, 只有细小差别.
+  template <typename U>
+    requires requires(LineSegment2D<T> l, LineSegment2D<U> p) {
+      { l.delta(p.p1) };
+      { p.delta(l.p1) };
+    } && std::is_floating_point_v<decltype(std::declval<T>() *
+                                           std::declval<U>())>
+  bool cross(const LineSegment2D<U> &seg) {
+    // 使用delta进行计算, 如果delta异号, 那么说明两点在直线异侧, 可能相交.
+    auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
+    // 同侧就别想了
+    if (sgn(d_a1 * d_a2) > 0) {
+      return false;
+    }
+
+    // l1 和 l2检测完检测l2 和 l1, 思路相同.
+    auto d_b1 = seg.delta(p1), d_b2 = seg.delta(p2);
+    if (sgn(d_b1 * d_b2) > 0) {
+      return false;
+    }
+
+    // 如果二者共线
+    if ((d_a1) == 0 && (d_a2) == 0 && (d_b1) == 0 && (d_b2) == 0) {
+      // 计算投影范围
+      auto [this_xmin, this_xmax] = std::minmax(p1.x, p2.x);
+      auto [this_ymin, this_ymax] = std::minmax(p1.y, p2.y);
+      auto [seg_xmin, seg_xmax] = std::minmax(seg.p1.x, seg.p2.x);
+      auto [seg_ymin, seg_ymax] = std::minmax(seg.p1.y, seg.p2.y);
+
+      // 双投影检查（必须同时满足）
+      bool x_overlap =
+          fcmp(this_xmax, seg_xmin) >= 0 && fcmp(seg_xmax, this_xmin) >= 0;
+      bool y_overlap =
+          fcmp(this_ymax, seg_ymin) >= 0 && fcmp(seg_ymax, this_ymin) >= 0;
+      return x_overlap && y_overlap;
+    }
+
+    // 全部在对方两侧, 检测通过.
+    return true;
+  }
+
+  // 计算几何, 整数版本, 这里去除了sgn判定相等的逻辑, 但是总体思路是一样的.
+  template <typename U>
+    requires requires(LineSegment2D<T> l, LineSegment2D<U> p) {
+      { l.delta(p.p1) };
+      { p.delta(l.p1) };
+    } && requires(T t, U u) {
+      { t < u };
+      { u < t };
+      { t < t };
+      { u < u };
+    }
+  bool cross(const LineSegment2D<U> &seg) {
+    auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
+    if (d_a1 * d_a2 > 0) {
+      return false;
+    }
+
+    auto d_b1 = seg.delta(p1), d_b2 = seg.delta(p2);
+    if (d_b1 * d_b2 > 0) {
+      return false;
+    }
+
+    if ((d_a1) == 0 && (d_a2) == 0 && (d_b1) == 0 && (d_b2) == 0) {
+      // 计算投影范围
+      auto [this_xmin, this_xmax] = std::minmax(p1.x, p2.x);
+      auto [this_ymin, this_ymax] = std::minmax(p1.y, p2.y);
+      auto [seg_xmin, seg_xmax] = std::minmax(seg.p1.x, seg.p2.x);
+      auto [seg_ymin, seg_ymax] = std::minmax(seg.p1.y, seg.p2.y);
+
+      // 双投影检查（必须同时满足）
+      bool x_overlap = (this_xmax >= seg_xmin) && (seg_xmax >= this_xmin);
+      bool y_overlap = (this_ymax >= seg_ymin) && (seg_ymax >= this_ymin);
+      return x_overlap && y_overlap;
+    }
+
+    return true;
+  }
+};
+
+template <typename T>
+  requires std::is_floating_point_v<T>  // -- 外层类模板约束
+template <typename U>                   // -- 成员函数模板参数
+bool Line2D<T>::cross(const LineSegment2D<U> &l) {
+  return this->cross(l.p1, l.p2);
+}
 
 }  // namespace geometry
