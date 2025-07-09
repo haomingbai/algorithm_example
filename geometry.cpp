@@ -341,7 +341,7 @@ struct LineBase2D {
              Addable<T> &&
              AddableWith<T, decltype((std::declval<T>() * std::declval<U>()))>
   auto delta(const Point2D<U> &p)
-      -> decltype(std::declval<T>() * std::declval<U>()) {
+      -> decltype(std::declval<T>() * std::declval<U>()) const {
     // 这里是获得直线的一般式的算法.
     // ref: https://blog.csdn.net/madbunny/article/details/43955883
     auto a = p2.y - p1.y, b = p1.x - p2.x;
@@ -453,7 +453,7 @@ struct Line2D : public LineBase2D<T> {
     requires requires(T t, U u) {
       { t == u } -> std::convertible_to<bool>;
     }
-  bool operator==(Line2D<U> line) {
+  bool operator==(const Line2D<U> &line) const {
     auto v1 = p2 - p1;
     auto v2 = line.p2 - line.p1;
 
@@ -479,7 +479,7 @@ struct Line2D : public LineBase2D<T> {
              Multiplyable<T> &&
              MultiplyableWith<decltype(std::declval<T>() * std::declval<T1>()),
                               decltype(std::declval<T>() * std::declval<T2>())>
-  bool cross(const Point2D<T1> &p1, const Point2D<T2> &p2) {
+  bool cross(const Point2D<T1> &p1, const Point2D<T2> &p2) const {
     auto d1 = delta(p1), d2 = delta(p2);
 
     if (sgn(d1 * d2) > 0) {
@@ -490,14 +490,14 @@ struct Line2D : public LineBase2D<T> {
   }
 
   template <typename U>
-  bool cross(const LineSegment2D<U> &l);
+  bool cross(const LineSegment2D<U> &l) const;
 
-  Vector2D<T> direction() { return p2 - p1; }
+  Vector2D<T> direction() const { return p2 - p1; }
 
-  Vector2D<T> directionUnit() { return direction().unit(); }
+  Vector2D<T> directionUnit() const { return direction().unit(); }
 
   template <typename U>
-  bool cross(const Line2D<U> &l) {
+  bool cross(const Line2D<U> &l) const {
     if (isParallel(this->direction(), l.direction())) {
       if (sgn(this->delta(l.p1)) == 0) {
         return true;
@@ -511,7 +511,7 @@ struct Line2D : public LineBase2D<T> {
   template <typename F>
     requires(std::abs(std::declval<T>()))
   auto distanceWith(const Point2D<T> &p)
-      -> decltype(std::sqrt(std::declval<T>())) {
+      -> decltype(std::sqrt(std::declval<T>())) const {
     // 这里是获得直线的一般式的算法.
     // ref: https://blog.csdn.net/madbunny/article/details/43955883
     auto a = p2.y - p1.y, b = p1.x - p2.x;
@@ -568,7 +568,7 @@ struct LineSegment2D : public LineBase2D<T> {
   // 这里判定相等, 只有完全重合是相等.
   template <typename U>
     requires std::is_convertible_v<U, T>
-  bool operator==(const LineSegment2D<U> &line) {
+  bool operator==(const LineSegment2D<U> &line) const {
     return (p1 == line.p1 && p2 == line.p2) || (p1 == line.p2 && p2 == line.p1);
   }
 
@@ -577,9 +577,16 @@ struct LineSegment2D : public LineBase2D<T> {
     requires requires(LineSegment2D<T> l, LineSegment2D<U> p) {
       { l.delta(p.p1) };
       { p.delta(l.p1) };
-    } && std::is_floating_point_v<decltype(std::declval<T>() *
-                                           std::declval<U>())>
-  bool cross(const LineSegment2D<U> &seg) {
+    } &&
+             requires(T t, U u) {
+               { t < u };
+               { u < t };
+               { t < t };
+               { u < u };
+             } &&
+             std::is_floating_point_v<decltype(std::declval<T>() *
+                                               std::declval<U>())>
+  bool cross(const LineSegment2D<U> &seg) const {
     // 使用delta进行计算, 如果delta异号, 那么说明两点在直线异侧, 可能相交.
     auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
     // 同侧就别想了
@@ -624,7 +631,7 @@ struct LineSegment2D : public LineBase2D<T> {
       { t < t };
       { u < u };
     }
-  bool cross(const LineSegment2D<U> &seg) {
+  bool cross(const LineSegment2D<U> &seg) const {
     auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
     if (d_a1 * d_a2 > 0) {
       return false;
@@ -655,7 +662,7 @@ struct LineSegment2D : public LineBase2D<T> {
 template <typename T>
   requires std::is_floating_point_v<T>  // -- 外层类模板约束
 template <typename U>                   // -- 成员函数模板参数
-bool Line2D<T>::cross(const LineSegment2D<U> &l) {
+bool Line2D<T>::cross(const LineSegment2D<U> &l) const {
   return this->cross(l.p1, l.p2);
 }
 
