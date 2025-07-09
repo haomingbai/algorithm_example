@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <numbers>
 #include <stdexcept>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -42,7 +43,7 @@ constexpr T epsilon_g<T, std::enable_if_t<std::is_floating_point_v<T>>> =
 // 判断浮点数的符号, 如果符号为0, 说明无限接近0, 可以当成0看待.
 template <typename T>
   requires(std::is_floating_point_v<T>)
-constexpr int sgn(T x) {
+constexpr int sign(T x) {
   if (std::fabs(x) < epsilon_g<T>) {
     return 0;
   } else {
@@ -52,7 +53,7 @@ constexpr int sgn(T x) {
 
 // 为了防止模板写错, 这里给整数也写一个.
 template <typename T>
-constexpr int sgn(T x) {
+constexpr int sign(T x) {
   if (x < 0) {
     return -1;
   } else if (x > 0) {
@@ -67,7 +68,7 @@ template <typename T, typename U>
   requires(
       std::is_floating_point_v<decltype(std::declval<T>() - std::declval<U>())>)
 constexpr int fcmp(T x, U y) {
-  return sgn(x - y);
+  return sign(x - y);
 }
 
 // 创建类型概念, 其实这里一个is_floating_point_v就可以解决的,
@@ -211,6 +212,13 @@ struct Point2D {
     // 链式调用, 产生一个临时对象, 但是对于基本数据类型, 开销尚可接受.
     return normal().unit();
   }
+
+  // 模长平方, 这个接口很常用就留着.
+  T length2()
+    requires Multiplyable<T> && Addable<T>
+  {
+    return x * x + y * y;
+  }
 };
 
 // 从此以后, Point2D类型就可以表示向量, 且在实际应用中应当严格遵循别名规则.
@@ -302,7 +310,7 @@ template <typename T1, typename T2>
           }) && std::is_floating_point_v<decltype(std::declval<T1>() -
                                                   std::declval<T2>())>
 bool isParallel(const Vector2D<T1> &v1, const Vector2D<T2> &v2) {
-  return sgn(crossProductValue(v1, v2)) == 0;
+  return sign(crossProductValue(v1, v2)) == 0;
 }
 
 // 这里是整形版本, 这个版本显然直接判断就可以了.
@@ -335,11 +343,14 @@ struct LineBase2D {
   // 算个delta, 对一些数要求了乘法, 加法和减法, 一般的有符号整数和浮点肯定能过.
   // 这里就是点到直线距离里面的判别式, 就是那个 delta / sqrt(a ^ 2 + b ^ 2)
   template <typename U>
-    requires MultiplyableWith<T, U> && Multiplyable<T> &&
-             Multiplyable<decltype(std::declval<T>() * std::declval<U>())> &&
-             Subtractable<decltype(std::declval<T>() * std::declval<U>())> &&
-             Addable<T> &&
-             AddableWith<T, decltype((std::declval<T>() * std::declval<U>()))>
+    requires Multiplyable<T> &&
+             MultiplyableWith<decltype(std::declval<T>() * std::declval<T>()),
+                              U> &&
+             Subtractable<decltype(std::declval<T>() * std::declval<T>())> &&
+             Subtractable<T> &&
+             Addable<decltype((std::declval<T>() * std::declval<U>()))> &&
+             AddableWith<decltype((std::declval<T>() * std::declval<U>())),
+                         decltype(std::declval<T>() * std::declval<T>())>
   auto delta(const Point2D<U> &p)
       -> decltype(std::declval<T>() * std::declval<U>()) const {
     // 这里是获得直线的一般式的算法.
@@ -350,6 +361,44 @@ struct LineBase2D {
     using RT = decltype(std::declval<T>() * std::declval<U>());
     RT res = a * p.x + b * p.y + c;
     return res;
+  }
+
+  // 获得对应直线的一般式, 这里的约束比较长,
+  // 但是对于常见的数据类型应该都可以通过.
+  auto generalForm()
+      -> std::tuple<decltype(std::declval<T>() - std::declval<T>()),
+                    decltype(std::declval<T>() - std::declval<T>()),
+                    decltype(std::declval<T>() * std::declval<T>() -
+                             std::declval<T>() * std::declval<T>())>
+    requires Subtractable<T> &&
+             Subtractable<decltype(std::declval<T>() * std::declval<T>())>
+  {
+    // 返回的类型一定要严谨.
+    using RT = std::tuple<decltype(std::declval<T>() - std::declval<T>()),
+                          decltype(std::declval<T>() - std::declval<T>()),
+                          decltype(std::declval<T>() * std::declval<T>() -
+                                   std::declval<T>() * std::declval<T>())>;
+
+    // 这里和上面的delta使用的是相同的算法, 参考相同的链接即可.
+    auto a = p2.y - p1.y, b = p1.x - p2.x;
+    auto c = p2.x * p1.y - p1.x * p2.y;
+
+    RT res = std::make_tuple(a, b, c);
+
+    return res;
+  }
+
+  template <typename U>
+    requires std::is_floating_point_v<T> && std::is_floating_point_v<U>
+  auto project(const Point2D<U> &p) -> Point2D<std::common_type<T, U>> {
+    using DT = std::common_type<T, U>;
+
+    // 这里是算出一个系数k, 这个系数k通过计算向量在目标向量上的投影长度,
+    // 进而计算出从起点到投影在两点构成的线段上的占比.
+    // 思路还是来源与清华大学的算法竞赛教程, 作者是罗永军教授等人.
+    DT k = ((p2 - p1) * (p - p1)) / (p2 - p1).length2();
+
+    return p1 + (p2 - p1) * k;
   }
 };
 
@@ -380,7 +429,7 @@ struct Line2D : public LineBase2D<T> {
 
     // 确保角度的参数范围在0到pi之内.
     // 因为我们这里是一条直线, 所以任意一个方向就可以了.
-    while (sgn(angle) == -1) {
+    while (sign(angle) == -1) {
       angle += std::numbers::pi_v<FloatType>;
     }
     while (fcmp(angle, std::numbers::pi_v<FloatType>) == 1) {
@@ -388,7 +437,7 @@ struct Line2D : public LineBase2D<T> {
     }
 
     // 如果我们这里的角度为 pi / 2, 那么方向向量就是 <0, 1>
-    if (sgn(angle - std::numbers::pi_v<FloatType> / 2) == 0) {
+    if (sign(angle - std::numbers::pi_v<FloatType> / 2) == 0) {
       // 点加上方向向量, 虽然点和向量类型相同, 但是类型别名要做好.
       p2 = p1 + Vector2D<T>(0, 1);
     } else {
@@ -422,10 +471,10 @@ struct Line2D : public LineBase2D<T> {
     requires std::is_convertible_v<F1, T> && std::is_convertible_v<F2, T> &&
              std::is_convertible_v<F3, T>
   Line2D(F1 a, F2 b, F3 c) {
-    [[unlikely]] if (sgn(a) == 0 && sgn(b) == 0) {
+    [[unlikely]] if (sign(a) == 0 && sign(b) == 0) {
       throw std::invalid_argument(
           "In ax + by + c, a and b cannot both be zero.");
-    } else if (sgn(b) == 0) {
+    } else if (sign(b) == 0) {
       // 这个就是k为无穷的情况, 需要单独处理.
       // k为无穷的时候, 整个直线是一条竖直线.
       auto y_0 = static_cast<T>(0), y_1 = static_cast<T>(0);
@@ -482,24 +531,30 @@ struct Line2D : public LineBase2D<T> {
   bool cross(const Point2D<T1> &p1, const Point2D<T2> &p2) const {
     auto d1 = delta(p1), d2 = delta(p2);
 
-    if (sgn(d1 * d2) > 0) {
+    if (sign(d1 * d2) > 0) {
       return false;
     } else {
       return true;
     }
   }
 
+  // 判断线段和直线是否相交.
   template <typename U>
   bool cross(const LineSegment2D<U> &l) const;
 
+  // 方向向量
   Vector2D<T> direction() const { return p2 - p1; }
 
+  // 单位方向向量.
   Vector2D<T> directionUnit() const { return direction().unit(); }
 
+  // 判定两条直线是否相交.
+  // 这里首先是判断平行, 如果方向向量平行, 那么判断是否共线.
+  // 相交和共线这里cross都返回true.
   template <typename U>
   bool cross(const Line2D<U> &l) const {
     if (isParallel(this->direction(), l.direction())) {
-      if (sgn(this->delta(l.p1)) == 0) {
+      if (sign(this->delta(l.p1)) == 0) {
         return true;
       }
       return false;
@@ -523,6 +578,53 @@ struct Line2D : public LineBase2D<T> {
     // 进行距离计算.
     auto res = std::abs(delta) / std::sqrt(a * a + b * b);
     return res;
+  }
+
+  // 两条直线之间的距离
+  // 思路就是最典型的|c1-c2|/sqrt(a^2+b^2)
+  template <typename U>
+    requires std::is_convertible_v<U, T>
+  auto distanceWith(const LineBase2D<U> &l) const {
+    assert(isParallel(*this, l));
+
+    [[assume(isParallel(*this, l))]];
+
+    auto [a1, b1, c1] = this->generalForm();
+    auto [a2, b2, c2] = l.generalForm();
+
+    return std::abs(c1 - c2) / std::sqrt(a1 * a1 - b1 * b1);
+  }
+
+  // 两条直线的交点.
+  // 约束类型随便写一点, 稍微测试一下就好, 反正浮点的圈子就那么大.
+  template <typename U>
+    requires std::is_convertible_v<U, T>
+  auto crossingPoint(const Line2D<U> &l) -> Point2D<std::common_type<T, U>> const {
+    using DataType = std::common_type<T, U>;
+
+    // ref: 算法竞赛 清华大学出版社
+    DataType s1 = crossProductValue(p2 - p1, l.p1 - p1),
+             s2 = crossProductValue(p2 - p1, l.p2 - p1);
+
+    return Point2D<DataType>(l.p1.x * s2 - l.p2.x * s1,
+                             l.p1.y * s2 - l.p2.y * s1) /
+           (s2 - s1);
+  }
+
+  // 0代表平行, 1代表重和, 2代表相交
+  // 计算两条直线之间的关系.
+  template <typename U>
+  int relationWith(const Line2D<U> l) const {
+    if (isParallel(this->direction(), l.direction())) {
+      if (sign(l.delta(this->p1)) == 0) {
+        // 重和
+        return 1;
+      } else {
+        return 0;
+      }
+    } else {
+      return 2;
+    }
   }
 };
 
@@ -553,7 +655,7 @@ struct LineSegment2D : public LineBase2D<T> {
     p1 = Point2D<T>(p);
 
     // 同样先调整参数, 只是这里单位是2pi.
-    while (sgn(rad) < 0) {
+    while (sign(rad) < 0) {
       rad += 2 * std::numbers::pi_v<F1>;
     }
     while (fcmp(rad, 2 * std::numbers::pi_v<F1>) > 0) {
@@ -590,18 +692,19 @@ struct LineSegment2D : public LineBase2D<T> {
     // 使用delta进行计算, 如果delta异号, 那么说明两点在直线异侧, 可能相交.
     auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
     // 同侧就别想了
-    if (sgn(d_a1 * d_a2) > 0) {
+    if (sign(d_a1 * d_a2) > 0) {
       return false;
     }
 
     // l1 和 l2检测完检测l2 和 l1, 思路相同.
     auto d_b1 = seg.delta(p1), d_b2 = seg.delta(p2);
-    if (sgn(d_b1 * d_b2) > 0) {
+    if (sign(d_b1 * d_b2) > 0) {
       return false;
     }
 
     // 如果二者共线
-    if ((d_a1) == 0 && (d_a2) == 0 && (d_b1) == 0 && (d_b2) == 0) {
+    if (sign(d_a1) == 0 && sign(d_a2) == 0 && sign(d_b1) == 0 &&
+        sign(d_b2) == 0) {
       // 计算投影范围
       auto [this_xmin, this_xmax] = std::minmax(p1.x, p2.x);
       auto [this_ymin, this_ymax] = std::minmax(p1.y, p2.y);
@@ -620,7 +723,7 @@ struct LineSegment2D : public LineBase2D<T> {
     return true;
   }
 
-  // 计算几何, 整数版本, 这里去除了sgn判定相等的逻辑, 但是总体思路是一样的.
+  // 计算几何, 整数版本, 这里去除了sign判定相等的逻辑, 但是总体思路是一样的.
   template <typename U>
     requires requires(LineSegment2D<T> l, LineSegment2D<U> p) {
       { l.delta(p.p1) };
@@ -644,6 +747,7 @@ struct LineSegment2D : public LineBase2D<T> {
 
     if ((d_a1) == 0 && (d_a2) == 0 && (d_b1) == 0 && (d_b2) == 0) {
       // 计算投影范围
+      // 这里的语法是C++17的结构化绑定.
       auto [this_xmin, this_xmax] = std::minmax(p1.x, p2.x);
       auto [this_ymin, this_ymax] = std::minmax(p1.y, p2.y);
       auto [seg_xmin, seg_xmax] = std::minmax(seg.p1.x, seg.p2.x);
@@ -656,6 +760,38 @@ struct LineSegment2D : public LineBase2D<T> {
     }
 
     return true;
+  }
+
+  // 这个接口是用来判断一个点是否在我们的目标线段上.
+  template <typename U>
+    requires requires(Vector2D<T> v1, Vector2D<U> v2) {
+      { sign(v1.cross(v2)) } -> std::convertible_to<int>;
+      { sign(v1 * v2) } -> std::convertible_to<int>;
+    }
+  bool isOnLineSegment(const Point2D<U> &p) const {
+    // ref: 算法竞赛 清华大学出版社
+    return sign(crossProductValue(p - p1, p2 - p1)) == 0 &&
+           sign((p - p1) * (p - p2)) <= 0;
+    // 这个算法的逻辑比较简单, 两个子表达式分别表达如下含义:
+    // vec(p, p1), vec(p, p2) 是否平行, 这个子表达式可以说明p是否在直线上.
+    // vec(p, p1), vec(p, p2) 是否具备相反的方向, 如果二者具有的方向相同,
+    // 就表明p在线段的某一侧而非线段上.
+    // 这里充分考虑了p在两个端点上的corner case.
+  }
+
+  // 这个函数求得的是点到线段的距离.
+  template <typename U>
+  // 因为根式的存在, 这里参与的数据类型必须是浮点数.
+    requires std::is_floating_point_v<std::common_type<T, U>>
+  auto distanceWith(const Point2D<U> &p) -> std::common_type<T, U> const {
+    // 如果p1p和p1p2方向相反或者p2p和p2p1方向相反, 那么点在线段的竖向两侧,
+    // 返回目标点到端点的最小距离.
+    if (sign((p2 - p1) * (p - p1)) <= 0 || sign((p1 - p2) * (p - p2)) <= 0) {
+      return std::min((p - p1).length(), (p - p2).length());
+    } else {
+      // 否则返回点到直线的距离.
+      return Line2D<T>(*this).distanceWith(p);
+    }
   }
 };
 
