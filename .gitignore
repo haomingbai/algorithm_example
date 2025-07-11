@@ -1,5 +1,28 @@
+# 首先忽略所有文件和目录
 *
-!README.md
-!*.cpp
+
+# 扫描文件夹
 !*/
-!.gitignore
+
+# 递归包含所有C/C++源代码文件
+!**/*.c
+!**/*.h
+!**/*.cpp
+!**/*.hpp
+!**/*.cc
+!**/*.cxx
+!**/*.hh
+!**/*.hxx
+
+# 递归包含所有.tex文件
+!**/*.tex
+
+# 递归包含所有.gitignore文件
+!**/.gitignore
+
+# 特别包含当前目录的.gitignore文件
+!/.gitignore
+
+# 递归包含所有的Makrdown源文件
+!**/*.md
+

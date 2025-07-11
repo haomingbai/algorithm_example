@@ -15,8 +15,6 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
-#include <iostream>
-#include <ostream>
 #include <vector>
 
 #include "concepts.cpp"
@@ -63,7 +61,7 @@ class SparseTable {
  public:
   /// 只解释这一个构造, 另一个就换了一个运算符就不解释了.
   template <typename Container>
-    requires(RandomAccessContainer<Container, T>)
+    requires(RandomAccessContainer<T, Container>)
   SparseTable(const Container &arr)
       :  /// 原数组有多少个元素就应该有多少行,
          /// 毕竟一个区间可能会从任何一个元素的位置开始.

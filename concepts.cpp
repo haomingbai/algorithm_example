@@ -12,6 +12,8 @@
 
 #include <concepts>
 #include <cstddef>
+#include <iterator>
+#include <type_traits>
 
 template <typename T>
 concept Addable = requires(T a, T b) {
@@ -77,3 +79,16 @@ template <typename T>
 concept Negativable = requires(T a) {
   { -a } -> std::convertible_to<T>;
 };
+
+template <typename Container, typename E>
+concept RandomStdContainer =
+    RandomAccessContainer<Container, E> && requires(Container arr) {
+      { arr.begin() };
+      { arr.end() } -> std::same_as<decltype(arr.begin())>;
+      { std::next(arr.begin()) } -> std::same_as<decltype(arr.begin())>;
+      { std::prev(arr.end()) } -> std::same_as<decltype(arr.begin())>;
+      {arr.begin() < arr.end()} -> std::convertible_to<bool>;
+      { arr.empty() } -> std::convertible_to<bool>;
+    };
+
+

@@ -14,8 +14,10 @@
 #include <cassert>
 #include <cmath>
 #include <concepts>
+#include <cstddef>
 #include <cstdlib>
 #include <numbers>
+#include <random>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
@@ -72,7 +74,13 @@ constexpr int fcmp(T x, U y) {
 
 template <typename T, typename U>
 constexpr int fcmp(T x, U y) {
-  return sign(x - y);
+  if (x > y) {
+    return 1;
+  } else if (x < y) {
+    return -1;
+  } else {
+    return 0;
+  }
 }
 
 // 创建类型概念, 其实这里一个is_floating_point_v就可以解决的,
@@ -219,31 +227,57 @@ struct Point2D {
   }
 
   // 模长平方, 这个接口很常用就留着.
-  T length2()
+  T length2() const
     requires Multiplyable<T> && Addable<T>
   {
     return x * x + y * y;
   }
 
-  auto rad() -> std::conditional_t<std::is_floating_point_v<T>, T, double> {
+  // 计算向量代表的弧度, 注意这里的范围是 [0, 2pi].
+  auto rad() const
+      -> std::conditional_t<std::is_floating_point_v<T>, T, double> {
     using RT = std::conditional_t<std::is_floating_point_v<T>, T, double>;
 
     auto u = unit();
-    RT raw_rad = std::abs(std::asin(y));
+    RT raw_rad = std::abs(std::asin(u.y));
+    // 这里还是见取得绝对值再去考虑符号和范围.
+    // 下面就是用诱导公式得到的.
     if (sign(x) <= 0 && sign(y) >= 0) {
-      RT rad = std::numbers::pi_v<RT> - raw_rad;
+      RT rad = std::numbers::pi_v<RT> - raw_rad;  // 第二象限
       return rad;
     } else if (sign(x) <= 0 && sign(y) <= 0) {
-      RT rad = std::numbers::pi_v<RT> + raw_rad;
+      RT rad = std::numbers::pi_v<RT> + raw_rad;  // 第三象限
       return rad;
     } else if (sign(x) >= 0 && sign(y) <= 0) {
-      RT rad = -raw_rad;
+      RT rad = 2 * std::numbers::pi_v<RT> - raw_rad;  // 第四象限
       return rad;
+    } else {
+      return raw_rad;  // 第一象限
     }
   }
 
+  // 向量夹角
   template <typename U>
-  auto angle() -> decltype(std::declval<T>() * std::declval<float>());
+  auto angle(const Vector2D<U> &v) const -> std::conditional_t<
+      std::is_floating_point_v<decltype(std::declval<T>() * std::declval<U>())>,
+      decltype(std::declval<T>() * std::declval<U>()), double> {
+    using RT =
+        std::conditional_t<std::is_floating_point_v<
+                               decltype(std::declval<T>() * std::declval<U>())>,
+                           decltype(std::declval<T>() * std::declval<U>()),
+                           double>;
+    if ((*this == Vector2D<RT>(0, 0)) || (v == Vector2D<RT>(0, 0))) {
+      return static_cast<RT>(0);
+    }
+
+    // 向量点乘.
+    RT x_prod = x * v.x, y_prod = y * v.y;
+    RT prod = x_prod + y_prod;
+    RT len_prod = length() + v.length();
+
+    // 获得夹角的弧度.
+    return acos(prod / len_prod);
+  }
 };
 
 // 从此以后, Point2D类型就可以表示向量, 且在实际应用中应当严格遵循别名规则.
@@ -452,10 +486,10 @@ struct Line2D : public LineBase2D<T> {
     // 确保角度的参数范围在0到pi之内.
     // 因为我们这里是一条直线, 所以任意一个方向就可以了.
     while (sign(angle) == -1) {
-      angle += std::numbers::pi_v<FloatType>;
+      angle = angle + std::numbers::pi_v<FloatType>;
     }
     while (fcmp(angle, std::numbers::pi_v<FloatType>) == 1) {
-      angle -= std::numbers::pi_v<FloatType>;
+      angle = angle - std::numbers::pi_v<FloatType>;
     }
 
     // 如果我们这里的角度为 pi / 2, 那么方向向量就是 <0, 1>
@@ -585,6 +619,7 @@ struct Line2D : public LineBase2D<T> {
     }
   }
 
+  // 直线到点的距离
   template <typename F>
     requires requires(T t) {
       { (std::abs(t)) };
@@ -653,6 +688,7 @@ struct Line2D : public LineBase2D<T> {
   }
 };
 
+// 线段模板继承自线段基础.
 template <typename T>
 struct LineSegment2D : public LineBase2D<T> {
   using LineBase2D<T>::p1;
@@ -795,43 +831,71 @@ bool Line2D<T>::cross(const LineSegment2D<U> &l) const {
   return this->cross(l.p1, l.p2);
 }
 
+// 中垂线的计算
 template <typename F1, typename F2,
           typename RT = std::conditional_t<
               std::is_floating_point_v<decltype(std::declval<F1>() +
                                                 std::declval<F2>())>,
               decltype(std::declval<F1>() + std::declval<F2>()), double>>
 auto bisection(const Point2D<F1> &p1, const Point2D<F2> &p2) -> Line2D<RT> {
+  // 获得中点
   Point2D<RT> mid = (Point2D<RT>(p1) + Point2D<RT>(p2)) / static_cast<RT>(2);
+
+  // 使用点和角度获得直线.
   return Line2D<RT>(mid, (p2 - p1).normal().rad());
 }
 
+// 线段的中垂线, 和两个点的中垂线其实是一个意思.
 template <typename F1, typename RT = std::conditional_t<
                            std::is_floating_point_v<F1>, F1, double>>
 auto bisection(const LineSegment2D<F1> &l) -> Line2D<RT> {
   return bisection(l.p1, l.p2);
 }
 
+// 正圆模板
 template <typename T>
   requires std::is_floating_point_v<T>
 struct Circle2D {
-  Point2D<T> c;
-  T r;
+  Point2D<T> c;  // 圆的圆心
+  T r;           // 圆的半径.
 
+  // 默认构造.
+  Circle2D() = default;
+
+  // 从圆心和半径构造圆
   template <typename F1, typename F2>
     requires std::is_convertible_v<F1, T> && std::is_convertible_v<F2, T>
-  Circle2D(const Point2D<F1> &c, T r) : c(c), r(r) {}
+  Circle2D(const Point2D<F1> &c, F2 r) : c(c), r(r) {}
 
+  // 三点定圆, 这里取了一个平均值, 降低误差, 提高精度.
   template <typename F1, typename F2, typename F3>
     requires std::is_convertible_v<F1, T> && std::is_convertible_v<F2, T> &&
              std::is_convertible_v<F3, T>
   Circle2D(const Point2D<F1> &p1, const Point2D<F2> &p2,
            const Point2D<F3> &p3) {
-    c = bisection(p1, p2).crossingPoint(bisection(p2, p3));
+    auto l1 = bisection(p1, p2);
+    auto l2 = bisection(p2, p3);
+    c = l1.crossingPoint(l2);
     r = ((T)c.distanceWith(p1) + (T)c.distanceWith(p2) +
          (T)c.distanceWith(p3)) /
         T(3);
   }
 
+  // 两点定圆, 从两个点获得圆, 这里还是取平均值, 提升精度.
+  template <typename F1, typename F2>
+    requires std::is_convertible_v<
+                 decltype(std::declval<F1>() + std::declval<F2>()), T> &&
+                 std::is_convertible_v<
+                     decltype(std::declval<Point2D<T>>().distanceWith(
+                                  std::declval<Point2D<F1>>()) +
+                              std::declval<Point2D<T>>().distanceWith(
+                                  std::declval<Point2D<F2>>())),
+                     T>
+  Circle2D(const Point2D<F1> &p1, const Point2D<F2> &p2)
+      : c(Point2D<T>(p1 + p2) / 2),
+        r(((T)(c.distanceWith(p1) + c.distanceWith(p2))) / 2) {}
+
+  // 点和圆的关系.
   template <typename U>
     requires requires(Point2D<T> c, Point2D<U> pu) {
       { sign(c.distanceWith(pu)) } -> std::convertible_to<int>;
@@ -847,6 +911,7 @@ struct Circle2D {
     }
   }
 
+  // 直线和圆的关系.
   template <typename U>
     requires requires(Point2D<T> c, Line2D<U> l) {
       { sign(l.distanceWith(c)) } -> std::convertible_to<int>;
@@ -862,29 +927,88 @@ struct Circle2D {
     }
   }
 
+  // 获得直线和圆的交点, 或者相交的线段.
   template <typename U, typename PD>
     requires std::is_floating_point_v<PD> && std::is_floating_point_v<U>
   auto crossingLineSeg(const Line2D<U> &l, Point2D<PD> &p1, Point2D<PD> p2)
       -> int {
+    // 计算圆心到直线的距离
     PD dis = l.distanceWith(c);
 
+    // 这里是判断是不是一个交点都没有
+    // 注意, 相比正常的使用sign判断符号, 这里罕见地使用了直接判断.
+    // 不要改动, 因为这里必须是严格地不小于, 否则开根号会出错误.
     auto flag = ((r * r - dis * dis) < 0);
     if (flag) {
       return 0;
     }
 
+    // 圆心到直线的投影点.
     Point2D<PD> q(l.project(c));
+
+    // 计算系数
     PD k = std::sqrt(r * r - dis * dis);
 
     if (sign(k) == 0) {
+      // 只有一个交点的情况
       p1 = p2 = q;
       return 1;
     } else {
+      // 有两个交点的情况.
       Vector2D<PD> uni_dir = l.directionUnit();
+      // 两侧各存在一个交点.
       p1 = q + uni_dir * k, p2 = q - uni_dir * k;
       return 2;
     }
   }
 };
+
+// 最小圆覆盖算法.
+template <
+    typename T, RandomStdContainer<Point2D<T>> Container,
+    typename R = std::conditional_t<std::is_floating_point_v<T>, T, double>>
+  requires(std::is_convertible_v<T, R>)
+Circle2D<R> minCoverCircle(const Container &carr) {
+  // 随机排列传入的点,
+  // 这里一定要随机才能获得近似与O(1)的复杂度, 别的都不行, 就是要无序.
+  Container arr(carr);
+  std::random_device rd;
+  std::mt19937 rng(rd());
+  std::shuffle(arr.begin(), arr.end(), rng);
+
+  // 如果是空的就不要搞事情了啊.
+  if (arr.size() == 0) {
+    return Circle2D<R>();
+  }
+
+  // 获得一个基准的圆
+  Circle2D<R> res(arr[0], 0);
+
+  for (size_t i = 0; i < arr.size(); i++) {
+    // 新加入的点如果在圆的外部.
+    if (res.relationWith(arr[i]) == 0) {
+      // 两点造圆.
+      res = Circle2D<R>(arr[i], arr[0]);
+      for (size_t j = 1; j < i; j++) {
+        // 当前的点, 在两点定圆之后, 在回溯时发现还在外面, 那就进入三点定圆环节.
+        if (res.relationWith(arr[j]) == 0) {
+          res = Circle2D<R>(arr[i], arr[j]);
+          for (size_t k = 0; k < j; k++) {
+            // 最后一次回溯, 这里三点定圆, 就是一定找到一个足够大的圆.
+            if (res.relationWith(arr[k]) == 0) {
+              // 如果点在圆外, 那就找个半径更大的.
+              res = Circle2D<R>(arr[i], arr[j], arr[k]);
+              // 这里在a[i], a[j]这两个点的基础上, 圆心一定在二者的中垂线上,
+              // 当半径增加时, 新的点一定能包含旧的圆包含的所有点.
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 返回厮杀得到的那个圆.
+  return res;
+}
 
 }  // namespace geometry
