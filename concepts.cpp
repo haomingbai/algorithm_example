@@ -72,3 +72,8 @@ template <typename T>
 concept Partable = requires(T a, size_t b) {
   { a / b } -> std::convertible_to<T>;
 };
+
+template <typename T>
+concept Negativable = requires(T a) {
+  { -a } -> std::convertible_to<T>;
+};

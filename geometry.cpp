@@ -188,8 +188,9 @@ struct Point2D {
   }
 
   // 单位向量.
-  auto unit() const
-      -> Vector2D<decltype(std::declval<T>() / std::sqrt(std::declval<T>()))>
+  auto unit() const -> Vector2D<decltype(std::declval<T>() /
+                                         std::sqrt(std::declval<T>() *
+                                                   std::declval<float>()))>
     requires(requires(T x, T y) { x / std::sqrt(x * x + y * y); })
   {
     using ReturnType =
@@ -223,6 +224,26 @@ struct Point2D {
   {
     return x * x + y * y;
   }
+
+  auto rad() -> std::conditional_t<std::is_floating_point_v<T>, T, double> {
+    using RT = std::conditional_t<std::is_floating_point_v<T>, T, double>;
+
+    auto u = unit();
+    RT raw_rad = std::abs(std::asin(y));
+    if (sign(x) <= 0 && sign(y) >= 0) {
+      RT rad = std::numbers::pi_v<RT> - raw_rad;
+      return rad;
+    } else if (sign(x) <= 0 && sign(y) <= 0) {
+      RT rad = std::numbers::pi_v<RT> + raw_rad;
+      return rad;
+    } else if (sign(x) >= 0 && sign(y) <= 0) {
+      RT rad = -raw_rad;
+      return rad;
+    }
+  }
+
+  template <typename U>
+  auto angle() -> decltype(std::declval<T>() * std::declval<float>());
 };
 
 // 从此以后, Point2D类型就可以表示向量, 且在实际应用中应当严格遵循别名规则.
@@ -757,6 +778,14 @@ struct LineSegment2D : public LineBase2D<T> {
       return Line2D<T>(*this).distanceWith(p);
     }
   }
+
+  auto length() -> decltype(std::sqrt(std::declval<T>() * std::declval<T>()))
+    requires requires(T t) {
+      { std::sqrt(t * t) };
+    }
+  {
+    return (p2 - p1).length();
+  }
 };
 
 template <typename T>
@@ -765,5 +794,97 @@ template <typename U>                   // -- 成员函数模板参数
 bool Line2D<T>::cross(const LineSegment2D<U> &l) const {
   return this->cross(l.p1, l.p2);
 }
+
+template <typename F1, typename F2,
+          typename RT = std::conditional_t<
+              std::is_floating_point_v<decltype(std::declval<F1>() +
+                                                std::declval<F2>())>,
+              decltype(std::declval<F1>() + std::declval<F2>()), double>>
+auto bisection(const Point2D<F1> &p1, const Point2D<F2> &p2) -> Line2D<RT> {
+  Point2D<RT> mid = (Point2D<RT>(p1) + Point2D<RT>(p2)) / static_cast<RT>(2);
+  return Line2D<RT>(mid, (p2 - p1).normal().rad());
+}
+
+template <typename F1, typename RT = std::conditional_t<
+                           std::is_floating_point_v<F1>, F1, double>>
+auto bisection(const LineSegment2D<F1> &l) -> Line2D<RT> {
+  return bisection(l.p1, l.p2);
+}
+
+template <typename T>
+  requires std::is_floating_point_v<T>
+struct Circle2D {
+  Point2D<T> c;
+  T r;
+
+  template <typename F1, typename F2>
+    requires std::is_convertible_v<F1, T> && std::is_convertible_v<F2, T>
+  Circle2D(const Point2D<F1> &c, T r) : c(c), r(r) {}
+
+  template <typename F1, typename F2, typename F3>
+    requires std::is_convertible_v<F1, T> && std::is_convertible_v<F2, T> &&
+             std::is_convertible_v<F3, T>
+  Circle2D(const Point2D<F1> &p1, const Point2D<F2> &p2,
+           const Point2D<F3> &p3) {
+    c = bisection(p1, p2).crossingPoint(bisection(p2, p3));
+    r = ((T)c.distanceWith(p1) + (T)c.distanceWith(p2) +
+         (T)c.distanceWith(p3)) /
+        T(3);
+  }
+
+  template <typename U>
+    requires requires(Point2D<T> c, Point2D<U> pu) {
+      { sign(c.distanceWith(pu)) } -> std::convertible_to<int>;
+    }
+  int relationWith(const Point2D<U> &p) {
+    auto distance = c.distanceWith(p);
+    if (fcmp(distance, r) < 0) {
+      return 2;  // 点在圆内, 从这一点引出的直线至少和圆有2个交点.
+    } else if (fcmp(distance, r) == 0) {
+      return 1;  // 点在圆上, 从这一点引出的直线至少和圆有1个交点.
+    } else {
+      return 0;  // 点在圆外, 从这一点引出的直线至少和圆有0个交点.
+    }
+  }
+
+  template <typename U>
+    requires requires(Point2D<T> c, Line2D<U> l) {
+      { sign(l.distanceWith(c)) } -> std::convertible_to<int>;
+    }
+  int relationWith(const Line2D<U> &l) {
+    auto distance = l.distanceWith(c);
+    if (fcmp(distance, r) < 0) {
+      return 2;  // 线在圆内, 直线和圆有2个交点.
+    } else if (fcmp(distance, r) == 0) {
+      return 1;  // 线在圆上, 直线和圆有1个交点.
+    } else {
+      return 0;  // 线在圆外, 直线和圆有0个交点.
+    }
+  }
+
+  template <typename U, typename PD>
+    requires std::is_floating_point_v<PD> && std::is_floating_point_v<U>
+  auto crossingLineSeg(const Line2D<U> &l, Point2D<PD> &p1, Point2D<PD> p2)
+      -> int {
+    PD dis = l.distanceWith(c);
+
+    auto flag = ((r * r - dis * dis) < 0);
+    if (flag) {
+      return 0;
+    }
+
+    Point2D<PD> q(l.project(c));
+    PD k = std::sqrt(r * r - dis * dis);
+
+    if (sign(k) == 0) {
+      p1 = p2 = q;
+      return 1;
+    } else {
+      Vector2D<PD> uni_dir = l.directionUnit();
+      p1 = q + uni_dir * k, p2 = q - uni_dir * k;
+      return 2;
+    }
+  }
+};
 
 }  // namespace geometry
