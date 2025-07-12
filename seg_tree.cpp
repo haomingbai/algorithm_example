@@ -287,8 +287,6 @@ class SimpleSegTree {
     /// 准备折半查找
     auto mid = (curr_left + curr_right) / 2, left_child_idx = curr_idx * 2,
          right_child_idx = curr_idx * 2 + 1;
-    /// 备份旧的左右孩子节点的值
-    auto old_left = data[left_child_idx], old_right = data[right_child_idx];
 
     /// 更新, 根据`pos`在`mid`的左侧还是右侧决定查找的位置.
     if (pos <= mid) {
@@ -301,13 +299,10 @@ class SimpleSegTree {
 
     /// 获取新值
     auto left = data[left_child_idx], right = data[right_child_idx];
-    /// 获取差值, 事实上总有一边应该差值为0.
-    auto update_left = left - old_left, update_right = right - old_right;
-    assert((update_left == 0) || (update_right == 0));
 
     /// 更新.
-    auto up = update_left + update_right;
-    data[curr_idx] += up;
+    auto up = left + right;
+    data[curr_idx] = up;
   }
 
   /// 增量更新, 包含懒惰标记
@@ -450,11 +445,7 @@ class SimpleSegTree {
 
   /// 更新, 更新`pos`位置的值为`val`
   /// 需要元素能够求逆元.
-  void update(DataType val, size_t pos)
-    requires Subtractable<DataType>
-  {
-    update(val, pos, 1, size, 1);
-  }
+  void update(DataType val, size_t pos) { update(val, pos, 1, size, 1); }
 
   /// 区间增量更新, 更新区间内的值为旧的加上`diff`
   /// 需要元素满足累加功能
@@ -673,17 +664,11 @@ class PresidentTree {
       curr_node.left_idx = new_child_idx;
 
       /// 更新子树之后我们才能更新当前的节点,
-      /// 因为知道了新旧版本才知道差值, 知道差值才能给当前节点加上差值.
+      /// 这时候新节点的值是左右子节点的和
       update(val, pos, left_edge, mid, old_child_idx, new_child_idx);
 
-      /// 获取差值
-      /// 因为可持久化的存在,
-      /// 我们这里就不需要在更新前备份旧版本的孩子节点的值了.
-      /// 直接读取两个版本就好.
-      auto diff = new_child_node.val - old_child_node.val;
-
-      /// 给当前节点加上差值.
-      curr_node.val = old_node.val + diff;
+      /// 更新当前节点.
+      curr_node.val = new_child_node.val + nodes[old_node.right_idx];
 
 #undef new_child_node
 #undef old_child_node
@@ -698,8 +683,7 @@ class PresidentTree {
       curr_node.left_idx = old_node.left_idx;
       curr_node.right_idx = new_child_idx;
       update(val, pos, mid + 1, right_edge, old_child_idx, new_child_idx);
-      auto diff = new_child_node.val - old_child_node.val;
-      curr_node.val = old_node.val + diff;
+      curr_node.val = new_child_node.val + nodes[old_node.left_idx];
 #undef new_child_node
 #undef old_child_node
     }
@@ -802,7 +786,6 @@ class PresidentTree {
 
   /// 普通的单点更新需要满足减法存在, max运算的减法就不存在
   void update(T val, size_t pos)
-    requires Subtractable<T>
   {
     /// 获取旧的根和新的根的下标
     size_t old_root_idx, new_root_idx;

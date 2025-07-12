@@ -110,6 +110,12 @@ K小树是一种可持久化线段树(主席树)的扩展方案, 可以用来找
 
 \lstinputlisting[language=C++, caption=seg\_tree.cpp, style=MyCStyle]{./seg_tree.cpp}
 
+\subsection{并查集}
+
+并查集 (Disjoint Set Union, DSU) 是一种高效处理集合合并与查询的数据结构, 常用于解决元素分组, 连通性判断等问题. 在算法竞赛中, 它被广泛应用于图论相关题目, 尤其是在处理无向图的连通分量, 最小生成树 (如 Kruskal 算法) 以及等价关系建模中. 例如, 给定若干合并操作与查询操作, 并查集可以在接近常数时间内判断两个元素是否属于同一集合, 极大提升算法效率. 此外, 在图像识别, 网络社群划分, 物理模拟等实际问题中, 并查集也同样展现了其强大的应用价值.
+
+\lstinputlisting[language=C++, caption=dsu.cpp, style=MyCStyle]{./dsu.cpp}
+
 \subsection{ST表}
 
 ST表是一种很简单的数据结构, 在特定的题目里面比线段树的解法常数小, 因此还是应该掌握. ST表适用于这样一种场景: 可重复贡献的场景下的反复查询. ST表的查询非常快, 可以达到最坏 $O(1)$ 的量级, 但是ST表只能用于那种 $x*x=x$ 的特殊运算, 且不能进行修改.
