@@ -1,40 +1,51 @@
-name: Build and Release PDF
+# .github/workflows/release-pdf.yml
 
+# 工作流的名称
+name: Release PDF on Tag
+
+# 触发工作流的事件
 on:
+  # 当有 push 操作时触发
   push:
+    # 仅在推送 "v" 开头的标签时触发, 例如 v1.0, v1.2.3
     tags:
-      - 'v*' # 匹配 v 开头的标签，如 v1.0, v2.1
+      - 'v*.*'
 
+# 工作流运行的任务
 jobs:
-  build-and-release:
+  build_and_release:
+    # 任务名称
+    name: Build LaTeX and Create Release
+    # 运行此任务的虚拟机环境
     runs-on: ubuntu-latest
-    container:
-      image: danteev/texlive:full # 包含完整 LaTeX 环境的镜像
-      options: --user root
-
+    
+    # 任务执行的步骤
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # 步骤 1: 检出你的仓库代码
+      # 使得工作流可以访问你的 main.tex 等文件
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Compile LaTeX document
-      run: |
-        # 安装中文字体支持（如果文档使用中文）
-        apt-get update && apt-get install -y fonts-wqy-zenhei
-        # 编译主文档（运行两次确保引用正确）
-        xelatex -interaction=nonstopmode main.tex
-        xelatex -interaction=nonstopmode main.tex
-        # 检查是否生成PDF
-        if [ ! -f main.pdf ]; then
-          echo "❌ PDF 文件未生成，编译失败"
-          exit 1
-        fi
+      # 步骤 2: 编译 LaTeX 文档
+      # 使用一个预先配置好的 Action 来安装 TeX Live 并执行编译
+      # https://github.com/xu-cheng/latex-action
+      - name: Compile LaTeX document
+        uses: xu-cheng/latex-action@v3
+        with:
+          # 指定你的主 .tex 文件
+          root_file: main.tex
+          # 指定使用的编译器, 这里是 xelatex
+          compiler: xelatex
+          # 传递给编译器的额外参数, nonstopmode 可以在遇到非致命错误时继续编译
+          args: -interaction=nonstopmode
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        name: ${{ github.ref_name }} Release
-        tag_name: ${{ github.ref_name }}
-        files: main.pdf
-        draft: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 步骤 3: 创建 Release 并上传 PDF
+      # 当上述步骤成功编译出 main.pdf 后, 此步骤会执行
+      # https://github.com/softprops/action-gh-release
+      - name: Create Release and Upload PDF
+        uses: softprops/action-gh-release@v2
+        with:
+          # 要上传的文件列表, 这里是编译生成的 PDF
+          files: main.pdf
+          # GITHUB_TOKEN 是由 GitHub 自动提供的, 无需手动设置
+          # 这个 token 允许 Action 在你的仓库中创建 Release
