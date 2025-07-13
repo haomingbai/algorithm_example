@@ -18,6 +18,10 @@ jobs:
     name: Build LaTeX and Create Release
     # 运行此任务的虚拟机环境
     runs-on: ubuntu-latest
+
+    # ❗️ 在这里添加权限设置 ❗️
+    permissions:
+      contents: write # 授予工作流写入仓库内容的权限，这是创建 Release 所必需的
     
     # 任务执行的步骤
     steps:
