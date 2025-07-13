@@ -1,40 +1,40 @@
-name: Build & Release PDF
+name: Build and Release PDF
 
 on:
-  # 1. 当推送 Tag 并且 Tag 名称以 release-v 开头时触发
   push:
     tags:
-      - 'v*'
-  # 2. 仍保留手动触发（可选）
-  workflow_dispatch:
+      - 'v*' # 匹配 v 开头的标签，如 v1.0, v2.1
 
 jobs:
   build-and-release:
-    name: 编译并发布 Release
     runs-on: ubuntu-latest
+    container:
+      image: danteev/texlive:full # 包含完整 LaTeX 环境的镜像
+      options: --user root
 
     steps:
-    - name: Checkout 仓库
-      uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: 安装 TeX Live（完整版）
+    - name: Compile LaTeX document
       run: |
-        sudo apt-get update
-        sudo apt-get install -y texlive-full
-
-    - name: XeLaTeX 编译
-      run: |
+        # 安装中文字体支持（如果文档使用中文）
+        apt-get update && apt-get install -y fonts-wqy-zenhei
+        # 编译主文档（运行两次确保引用正确）
         xelatex -interaction=nonstopmode main.tex
-        # 为保证目录/引用正确，可重复运行两次
         xelatex -interaction=nonstopmode main.tex
+        # 检查是否生成PDF
+        if [ ! -f main.pdf ]; then
+          echo "❌ PDF 文件未生成，编译失败"
+          exit 1
+        fi
 
-    - name: 发布到 GitHub Release
+    - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        # github.ref_name 就是触发时的 tag（如 release-v1.2.3）
+        name: ${{ github.ref_name }} Release
         tag_name: ${{ github.ref_name }}
-        name: Release ${{ github.ref_name }}
         files: main.pdf
+        draft: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
