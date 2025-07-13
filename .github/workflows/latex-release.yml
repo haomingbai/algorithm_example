@@ -1,0 +1,40 @@
+name: Build & Release PDF
+
+on:
+  # 1. 当推送 Tag 并且 Tag 名称以 release-v 开头时触发
+  push:
+    tags:
+      - 'v*'
+  # 2. 仍保留手动触发（可选）
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    name: 编译并发布 Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout 仓库
+      uses: actions/checkout@v3
+
+    - name: 安装 TeX Live（完整版）
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y texlive-full
+
+    - name: XeLaTeX 编译
+      run: |
+        xelatex -interaction=nonstopmode main.tex
+        # 为保证目录/引用正确，可重复运行两次
+        xelatex -interaction=nonstopmode main.tex
+
+    - name: 发布到 GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        # github.ref_name 就是触发时的 tag（如 release-v1.2.3）
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        files: main.pdf
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
