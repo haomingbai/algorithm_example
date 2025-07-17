@@ -16,12 +16,15 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdlib>
+#include <iostream>
 #include <numbers>
+#include <ostream>
 #include <random>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "concepts.cpp"
 
@@ -811,7 +814,7 @@ struct LineSegment2D : public LineBase2D<T> {
       return std::min((p - p1).length(), (p - p2).length());
     } else {
       // 否则返回点到直线的距离.
-      return Line2D<T>(*this).distanceWith(p);
+      return (static_cast<Line2D<T> &>(*this)).distanceWith(p);
     }
   }
 
@@ -1010,5 +1013,57 @@ Circle2D<R> minCoverCircle(const Container &carr) {
   // 返回厮杀得到的那个圆.
   return res;
 }
+
+template <typename T>
+struct Polygon2D {
+  std::vector<Point2D<T>> pts;
+
+  // 判定多边形和点的关系
+  // 如果点在多边形外部, 返回0
+  // 如果点在多边形内部, 返回1
+  // 如果点在多边形的边上, 返回2
+  // 如果点在多边形的顶点, 返回3
+  template <typename U>
+  int relationWith(const Point2D<U> &pt) const {
+    using DT = decltype(std::declval<U>() - std::declval<T>());
+
+    for (size_t i = 0; i < pts.size(); i++) {
+      if (pt == pts[i]) {
+        return 3;
+      }
+    }
+
+    for (size_t i = 0; i < pts.size(); i++) {
+      LineSegment2D<DT> line(pts[i], pts[(i + 1) % pts.size()]);
+      if (line.isOnLineSegment(pt)) {
+        return 2;
+      }
+    }
+
+    // 下面的代码是代表点在圆内的, 我也看不懂.
+    // 看得懂的同学救一下.
+    long num = 0;
+
+    for (size_t i = 0; i < pts.size(); i++) {
+      size_t j = (i + 1) % pts.size();
+
+      int c = sign(crossProductValue(pt - pts[j], pts[i] - pts[j]));
+      int u = sign(pts[i].y - pt.y);
+      int v = sign(pts[j].y - pt.y);
+
+      if (c > 0 && u < 0 && v >= 0) {
+        num++;
+      } else if (c < 0 && u >= 0 && v < 0) {
+        num--;
+      }
+    }
+
+    if (num != 0) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+};
 
 }  // namespace geometry
