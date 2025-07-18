@@ -774,8 +774,7 @@ static inline void _rbTree_set_insert_balance(rb_tree *tree,
     _rbTree_set_insert_balance(tree, grandpa);
   } else if (_rbTree_color(node->parent) == RED &&
              _rbTree_color(_rbTree_get_uncle(node)) == BLACK) {
-    binary_node *parent = node->parent,
-                *grandpa = _rbTree_get_grandpa(node);
+    binary_node *parent = node->parent, *grandpa = _rbTree_get_grandpa(node);
     if (parent == grandpa->child[LEFT] && node == parent->child[RIGHT]) {
       binary_tree_rotate(tree, parent, LEFT);
       binary_node *mid = node;
@@ -827,6 +826,38 @@ static inline binary_node *_findSuccessor(binary_node *root) {
     node = node->child[LEFT];
   }
   return node;
+}
+
+binary_node *bst_find_successor(binary_tree *tree, binary_node *node) {
+  binary_node *curr = node;
+
+  if (!curr) {
+    return NULL;
+  }
+
+  curr = curr->child[RIGHT];
+
+  while (curr && curr->child[LEFT]) {
+    curr = curr->child[LEFT];
+  }
+
+  return curr;
+}
+
+binary_node *bst_find_predcessor(binary_tree *tree, binary_node *node) {
+  binary_node *curr = node;
+
+  if (!curr) {
+    return NULL;
+  }
+
+  curr = curr->child[LEFT];
+
+  while (curr && curr->child[RIGHT]) {
+    curr = curr->child[RIGHT];
+  }
+
+  return curr;
 }
 
 static inline binary_node *_rbTreeFindNode(rb_tree *tree, binary_node *node,
