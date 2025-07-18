@@ -91,4 +91,7 @@ concept RandomStdContainer =
       { arr.empty() } -> std::convertible_to<bool>;
     };
 
-
+template<typename T>
+concept Comparable = requires (T a, T b) {
+  {a < b} -> std::convertible_to<bool>;
+};
