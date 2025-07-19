@@ -55,7 +55,7 @@ class Descretization {
 
  public:
   template <typename Container>
-    requires(RandomAccessContainer<size_t, Container>)
+    requires(RandomAccessContainer<Container, size_t>)
   Descretization(const Container &arr) {
     for (auto &it : arr) {
       val_hash[it] = 0;
@@ -68,10 +68,19 @@ class Descretization {
     for (auto &it : val_hash) {
       it.second = cnt;
       hash_val.push_back(it.first);
+      cnt++;
     }
   }
 
   size_t hash(size_t val) { return val_hash[val]; }
 
   size_t dehash(size_t hash) { return hash_val[hash]; }
+
+  size_t getMaxHash() {
+    return val_hash.rbegin()->second;
+  }
+
+  size_t getMinHash() {
+    return val_hash.begin()->second;
+  }
 };
