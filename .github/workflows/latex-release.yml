@@ -38,10 +38,10 @@ jobs:
         with:
           # 指定你的主 .tex 文件
           root_file: main.tex
-          # 指定使用的编译器, 这里是 xelatex
-          compiler: xelatex
-          # 传递给编译器的额外参数, nonstopmode 可以在遇到非致命错误时继续编译
-          args: -interaction=nonstopmode
+          # ❗️ 修改部分:
+          # 我们不再直接指定 compiler，而是通过 args 告诉 latexmk 使用 xelatex。
+          # latexmk 会自动处理需要编译两次（或更多次）的情况。
+          args: -xelatex -interaction=nonstopmode
 
       # 步骤 3: 创建 Release 并上传 PDF
       # 当上述步骤成功编译出 main.pdf 后, 此步骤会执行

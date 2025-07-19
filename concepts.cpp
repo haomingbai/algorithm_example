@@ -87,11 +87,13 @@ concept RandomStdContainer =
       { arr.end() } -> std::same_as<decltype(arr.begin())>;
       { std::next(arr.begin()) } -> std::same_as<decltype(arr.begin())>;
       { std::prev(arr.end()) } -> std::same_as<decltype(arr.begin())>;
-      {arr.begin() < arr.end()} -> std::convertible_to<bool>;
+      { arr.begin() < arr.end() } -> std::convertible_to<bool>;
       { arr.empty() } -> std::convertible_to<bool>;
     };
 
-template<typename T>
-concept Comparable = requires (T a, T b) {
-  {a < b} -> std::convertible_to<bool>;
+template <typename T>
+concept FullyComparable = requires(T a, T b) {
+  { a < b } -> std::convertible_to<bool>;
+  { a == b } -> std::convertible_to<bool>;
+  { a > b } -> std::convertible_to<bool>;
 };
