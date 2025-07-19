@@ -512,8 +512,14 @@ class KthTree : public PersistentSegTree<size_t> {
     }
   }
 
+  // 添加一个元素.
   void add(size_t elem) { updateDiff(elem, 1); }
-
+  
+  // 查找区间中第K小的元素.
+  // 注意这里K是从0开始, 也就是第0,1,...,n-1小的元素.
+  // left和right表示区间的左右边界, 这里是闭区间,
+  // 也就是说left和right包含在区间当中.
+  // 这里left, right是从0开始的, 和STL风格相统一.
   size_t kthElem(size_t k, size_t left, size_t right) {
     return kthElem(k, 0, size - 1, roots[left], roots[right + 1]);
   }
