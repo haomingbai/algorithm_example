@@ -16,9 +16,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
 #include <numbers>
-#include <ostream>
 #include <random>
 #include <stdexcept>
 #include <tuple>
@@ -1018,6 +1016,14 @@ template <typename T>
 struct Polygon2D {
   std::vector<Point2D<T>> pts;
 
+  template <RandomStdContainer<Point2D<T>> Container>
+  Polygon2D(Container &&arr) : pts(arr.begin(), arr.end()) {}
+
+  Polygon2D(std::vector<Point2D<T>> &&vec) : pts(std::move(vec)) {}
+  Polygon2D(const std::vector<Point2D<T>> &vec) : pts(vec) {}
+
+  Polygon2D() = default;
+
   // 判定多边形和点的关系
   // 如果点在多边形外部, 返回0
   // 如果点在多边形内部, 返回1
@@ -1064,6 +1070,169 @@ struct Polygon2D {
       return 0;
     }
   }
+
+  size_t size() const { return pts.size(); }
+
+  T area() const
+    requires Negativable<T>
+  {
+    T res = 0;
+
+    // 从(0, 0)引出的相邻两条边的面积.
+    for (size_t i = 0; i < size(); i++) {
+      res += crossProductValue(pts[i], pts[(i + 1) % size()]);
+    }
+
+    return res;
+  }
+
+  auto center() const
+      -> Point2D<std::conditional_t<std::is_floating_point_v<T>, T, double>> {
+    using RT = std::conditional_t<std::is_floating_point_v<T>, T, double>;
+
+    Point2D<RT> ans(0, 0);
+
+    for (size_t i = 0; i < size(); i++) {
+      auto dir =
+          (pts[i] + pts[(i + 1) % size()]);  // 这好像是一个方向
+                                             // 至于方向代表什么我也不知道
+
+      // 这是面积的大小, 为什么这两个乘起来叫有向面积, 我也不知道.
+      auto tmp_area = crossProductValue(pts[i], pts[(i + 1) % size()]);
+
+      ans = ans + dir * tmp_area;
+    }
+
+    return ans;
+  }
+
+  auto perimeter() const -> decltype(std::declval<Vector2D<T>>().length()) {
+    using RT = decltype(std::declval<Vector2D<T>>().length());
+
+    RT res(0);
+    for (auto i = 0; i < size(); i++) {
+      res = res + (pts[i] - pts[(i + 1) % size()]).length();
+    }
+    return res;
+  }
 };
+
+// 这个算法来源于清华大学的算法竞赛教程.
+// 比较难以理解, 但是总体来讲可以接受.
+template <typename T, RandomStdContainer<Point2D<T>> Container>
+auto convexHull(Container &&arr) -> Polygon2D<T>
+  requires requires(Vector2D<T> v) {
+    { crossProductValue(v, v) };
+  }
+{
+  // 先构造一个容器可能会影响效率,
+  // 但是传入const的时候, 这个效率也必须影响.
+  std::vector<Point2D<T>> vec(arr.begin(), arr.end());
+
+  // 按照X进行排序.
+  // 当X相同时, 按照Y进行排序.
+  std::sort(vec.begin(), vec.end(), [](const auto &p1, const auto &p2) {
+    if (p1.x < p2.x) {
+      return true;
+    }
+    if (fcmp(p1.x, p2.x) == 0) {
+      return p1.y < p2.y;
+    }
+    return false;
+  });
+  // 去重
+  // 有序数组去重都可以这么搞
+  vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+
+  // 特殊情况, 空点集和一个点,
+  // 象征性地讨论一下.
+  if (vec.empty()) {
+    return Polygon2D<T>();
+  }
+  if (vec.size() == 1) {
+    auto res = Polygon2D<T>();
+    res.pts.push_back(vec[0]);
+  }
+
+  // 辅助函数, 给出一个点数组中的最后两点构成的向量.
+  // Lambda就不要搞边界检查了,
+  // 反正不会有第二个人调用它.
+  auto getLastVector = [](const auto &vec) {
+    return vec.back() - vec[vec.size() - 2];
+  };
+
+  // 下凸包
+  // 先计算下凸包的路径
+  std::vector<Point2D<T>> lower;
+  // 把前两个点加入凸包的路径中.
+  lower.emplace_back(vec[0]);
+  lower.emplace_back(vec[1]);
+
+  // 遍历剩下的点
+  for (size_t i = 2; i < vec.size(); i++) {
+    // 准备加入凸包的点.
+    const auto &pt = vec[i];
+
+    // 向左拐是逆时针, 向右拐顺时针
+    while (true) {
+      auto v1 = getLastVector(lower);
+      auto v2 = pt - lower.back();
+
+      // 算叉积, 大于0算顺时针转动.
+      auto cross = crossProductValue(v1, v2);
+
+      // 如果叉积大于0, 那么说明新加的边比上一套边是顺时针旋转的.
+      // 这个时候就可以加入这个点并移动到下一个点
+      if (cross >= 0) {
+        lower.emplace_back(pt);
+        break;
+      }
+
+      // 否则就先去掉一个点.
+      // 没图讲不清楚, 看清华算法竞赛524页.
+      lower.pop_back();
+      // 只剩一个点了那新的点一定可以加进去.
+      if (lower.size() < 2) {
+        lower.emplace_back(pt);
+        break;
+      }
+    }
+  }
+
+  // 上凸包
+  // 也是同理.
+  std::vector<Point2D<T>> upper;
+  upper.emplace_back(vec[vec.size() - 1]);
+  upper.emplace_back(vec[vec.size() - 2]);
+
+  for (long i = vec.size() - 3; i >= 0; i--) {
+    const auto &pt = vec[i];
+
+    // 向左拐是顺时针, 向右拐是逆时针
+    while (true) {
+      auto v1 = getLastVector(upper);
+      auto v2 = pt - upper.back();
+      auto cross = crossProductValue(v1, v2);
+
+      if (cross >= 0) {
+        upper.emplace_back(pt);
+        break;
+      }
+
+      upper.pop_back();
+      if (upper.size() < 2) {
+        upper.emplace_back(pt);
+        break;
+      }
+    }
+  }
+
+  auto res = std::move(lower);
+  for (size_t i = 1; i < upper.size() - 1; i++) {
+    res.emplace_back(std::move(upper[i]));
+  }
+
+  return Polygon2D<T>(std::move(res));
+}
 
 }  // namespace geometry
