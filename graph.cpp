@@ -1,520 +1,285 @@
+/**
+ * @file graph.cpp
+ * @brief
+ * @author Haoming Bai <haomingbai@hotmail.com>
+ * @date   2025-07-22
+ *
+ * Copyright © 2025 Haoming Bai
+ * SPDX-License-Identifier: MIT
+ *
+ * @details
+ */
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <iterator>
+#include <iostream>
 #include <list>
+#include <ostream>
 #include <queue>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
-#pragma once
-
+#include "./concepts.cpp"
 #include "./dsu.cpp"
 
-#if __cplusplus >= 202302L
-#define CONSTEXPR23 constexpr
-#else
-#define CONSTEXPR23 /* empty */
-#endif
+namespace graph {
 
-template <typename T>
-class adjacent_matrix {
-  const std::size_t node_num;
-  std::vector<std::vector<T>> mat;
-  T inf;
-
-  template <typename Func, typename... Args>
-  auto dfs(std::size_t curr, std::vector<unsigned char> &visited, Func func,
-           Args... args) -> void {
-    visited[curr] = true;
-    func(curr, std::forward<Args>(args)...);
-    for (std::size_t i = 0; i < node_num; i++) {
-      if (!visited[i] && mat[curr][i] != inf) {
-        dfs(i, visited, func, std::forward<Args>(args)...);
-      }
-    }
-  }
-
+// 在许多图论的算法当中, 我们常常涉及比较操作和松弛操作.
+// 因此, 对于边权, 我们应当确保他们可以使用比较和相加.
+template <FullyComparable EdgeType, typename DataType = char>
+  requires Addable<EdgeType> && Subtractable<EdgeType>
+class DirectedAdjList {
  public:
-  CONSTEXPR23 adjacent_matrix(const std::size_t node_number)
-      : node_num(node_number), inf(10000000) {
-    mat.resize(node_num);
-    for (auto &it : this->mat) {
-      it.resize(node_num);
-      std::fill(it.begin(), it.end(), inf);
-    }
-    for (std::size_t i = 0; i < node_num; i++) {
-      mat[i][i] = 0;
-    }
-  }
-  CONSTEXPR23 adjacent_matrix(const std::size_t node_number, const T &inf)
-      : node_num(node_number), inf(inf) {
-    mat.resize(node_num);
-    for (auto &it : this->mat) {
-      it.resize(node_num);
-      std::fill(it.begin(), it.end(), inf);
-    }
-    for (std::size_t i = 0; i < node_num; i++) {
-      mat[i][i] = 0;
-    }
-  }
-  CONSTEXPR23 adjacent_matrix(const std::size_t node_number, const T &&inf)
-      : node_num(node_number), inf(inf) {
-    mat.resize(node_num);
-    for (auto &it : this->mat) {
-      it.resize(node_num);
-      std::fill(it.begin(), it.end(), inf);
-    }
-    for (std::size_t i = 0; i < node_num; i++) {
-      mat[i][i] = 0;
-    }
-  }
+  // 这个边是包含终点和边权的边.
+  // 因为在图论当中, 边的终点称为Head,
+  // 所以这种边我称为HeadEdge.
+  struct HeadEdge {
+    size_t head_;
+    DataType weight_;
 
-  CONSTEXPR23 auto dijkstra(std::size_t start) -> std::vector<T> {
-    std::vector<T> res(node_num, inf);
-    res[start] = 0;
-    auto visited = new bool[node_num]();
-
-    while (true) {
-      // Find the node unvisited with the shortest distance.
-      std::size_t node_to_proc = SIZE_MAX;
-      for (std::size_t i = 0; i < node_num; i++) {
-        if (node_to_proc == SIZE_MAX && !visited[i]) {
-          node_to_proc = i;
-        } else if (!visited[i] && res[i] < res[node_to_proc]) {
-          node_to_proc = i;
-        }
-      }
-      if (node_to_proc == SIZE_MAX || res[node_to_proc] == inf) {
-        break;
-      }
-      visited[node_to_proc] = 1;
-
-      // Release the node
-      for (std::size_t i = 0; i < node_num; i++) {
-        if (!visited[i]) {
-          T dist = res[node_to_proc] + mat[node_to_proc][i];
-          if (mat[node_to_proc][i] == inf || dist < res[node_to_proc]) {
-            continue;  // Digit overflows
-                       // Might be deleted if you can make sure that the range
-                       // of T is enough.
-          }
-          if (dist < res[i]) {
-            res[i] = dist;
-          }
-        }
-      }
-    }
-
-    delete[] visited;
-    return res;
-  }
-
-  auto dijkstra(std::size_t start, std::vector<std::size_t> &prev)
-      -> std::vector<T> {
-    if (start >= node_num) {
-      throw std::invalid_argument("The arg start is to large!");
-    }
-
-    std::vector<T> res(node_num, inf);
-    res[start] = 0;
-    auto visited = new bool[node_num]();
-    prev.clear();
-    prev.resize(node_num, SIZE_MAX);
-
-    while (true) {
-      // Find the node unvisited with the shortest distance.
-      std::size_t node_to_proc = SIZE_MAX;
-      for (std::size_t i = 0; i < node_num; i++) {
-        if (node_to_proc == SIZE_MAX && !visited[i]) {
-          node_to_proc = i;
-        } else if (!visited[i] && res[i] < res[node_to_proc]) {
-          node_to_proc = i;
-        }
-      }
-      if (node_to_proc == SIZE_MAX || res[node_to_proc] == inf) {
-        break;
-      }
-      visited[node_to_proc] = true;
-
-      // Release the node
-      for (std::size_t i = 0; i < node_num; i++) {
-        if (!visited[i]) {
-          T dist = res[node_to_proc] + mat[node_to_proc][i];
-          if (mat[node_to_proc][i] == inf || dist < res[node_to_proc]) {
-            continue;  // Digit overflows
-                       // Might be deleted if you can make sure that the range
-                       // of T is enough.
-          }
-          if (dist < res[i]) {
-            res[i] = dist;
-            prev[i] = node_to_proc;
-          }
-        }
-      }
-    }
-
-    delete[] visited;
-    return res;
-  }
-
-  CONSTEXPR23 auto add_edge(std::size_t from, std::size_t to, const T &weight)
-      -> void {
-    if (from >= node_num || to >= node_num) {
-      throw std::invalid_argument(
-          "Invalid argument: the starting or end point is not in the graph");
-    }
-    mat[from][to] = weight;
-  }
-
-  auto spfa(std::size_t from, std::vector<T> &res) -> bool {
-    if (from >= node_num) {
-      throw std::invalid_argument(
-          "Invalid argument: the starting or end point is not in the graph");
-    }
-
-    res.clear();
-    res.resize(node_num, inf);
-    res[from] = 0;
-    std::queue<size_t> q;
-    q.push(from);
-    std::vector<unsigned char> in_queue(node_num, false);
-    std::vector<std::size_t> cnt(node_num, 0);
-    in_queue[from] = true;
-
-    while (!q.empty()) {
-      std::size_t to_proc = q.front();
-      q.pop();
-      in_queue[to_proc] = false;
-
-      for (std::size_t i = 0; i < node_num; i++) {
-        if (mat[to_proc][i] != inf) {
-          T dist = res[to_proc] + mat[to_proc][i];
-          if (dist < res[i]) {
-            res[i] = dist;
-            cnt[i] = cnt[to_proc] + 1;
-            if (cnt[i] >= node_num) {
-              return false;
-              // The function fail becalue a negative circular.
-            }
-            if (!in_queue[i]) {
-              q.push(i), in_queue[i] = true;
-            }
-          }
-        }
-      }
-    }
-    return true;  // The function succeed.
-  }
-
-  auto spfa(std::size_t from, std::vector<T> &res, std::vector<size_t> &prev)
-      -> bool {
-    if (from >= node_num) {
-      throw std::invalid_argument(
-          "Invalid argument: the starting or end point is not in the graph");
-    }
-
-    prev.clear();
-    prev.resize(node_num, SIZE_MAX);
-    res.clear();
-    res.resize(node_num, inf);
-    res[from] = 0;
-    std::queue<size_t> q;
-    q.push(from);
-    std::vector<unsigned char> in_queue(node_num, false);
-    std::vector<std::size_t> cnt(node_num, 0);
-    in_queue[from] = true;
-
-    while (!q.empty()) {
-      std::size_t to_proc = q.front();
-      q.pop();
-      in_queue[to_proc] = false;
-
-      for (std::size_t i = 0; i < node_num; i++) {
-        if (mat[to_proc][i] != inf) {
-          T dist = res[to_proc] + mat[to_proc][i];
-          if (dist < res[i]) {
-            prev[i] = to_proc;
-            res[i] = dist;
-            cnt[i] = cnt[to_proc] + 1;
-            if (cnt[i] >= node_num) {
-              return false;
-              // The function fail becalue a negative circular.
-            }
-            if (!in_queue[i]) {
-              q.push(i), in_queue[i] = true;
-            }
-          }
-        }
-      }
-    }
-    return true;  // The function succeed.
-  }
-
-  template <typename Func, typename... Args>
-  auto dfs(std::size_t start, Func func, Args... args) -> void {
-    if (start >= node_num) {
-      throw std::invalid_argument(
-          "Invalid argument: the starting or end point is not in the graph");
-    }
-    std::vector<unsigned char> visited(node_num, false);
-    dfs(start, visited, func, std::forward<Args>(args)...);
-  }
-
-  template <typename Func, typename... Args>
-  auto bfs(std::size_t start, Func func, Args... args) -> void {
-    if (start >= node_num) {
-      throw std::invalid_argument(
-          "Invalid argument: the starting or end point is not in the graph");
-    }
-    std::queue<size_t> q;
-    std::vector<unsigned char> visited(node_num, false);
-    q.push(start);
-    visited[start] = true;
-    while (!q.empty()) {
-      auto to_proc = q.front();
-      q.pop();
-      func(to_proc, std::forward(args)...);
-      for (std::size_t i = 0; i < node_num; i++) {
-        if (!visited[i] && mat[to_proc][i] != inf) {
-          visited[i] = true;
-          q.push(i);
-        }
-      }
-    }
-  }
-
-  CONSTEXPR23 auto floyd() -> std::vector<std::vector<T>> {
-    auto res = mat;
-
-    for (std::size_t k = 0; k < node_num; k++) {
-      for (std::size_t from = 0; from < node_num; from++) {
-        for (std::size_t to = 0; to < node_num; to++) {
-          res[from][to] = std::min(res[from][to], res[from][k] + res[k][to]);
-        }
-      }
-    }
-
-    return res;
-  }
-
-  auto floyd(std::vector<std::vector<std::size_t>> &prevs)
-      -> std::vector<std::vector<T>> {
-    auto res = mat;
-    prevs.clear();
-    prevs.resize(node_num, std::vector<std::size_t>(node_num, SIZE_MAX));
-    for (std::size_t from = 0; from < node_num; from++) {
-      for (std::size_t to = 0; to < node_num; to++) {
-        if (mat[from][to] != inf) {
-          prevs[from][to] = from;
-        }
-      }
-    }
-
-    for (std::size_t k = 0; k < node_num; k++) {
-      for (std::size_t from = 0; from < node_num; from++) {
-        for (std::size_t to = 0; to < node_num; to++) {
-          auto res_prev = res[from][to];
-          res[from][to] = std::min(res[from][to], res[from][k] + res[k][to]);
-          if (res[from][to] != res_prev) {
-            prevs[from][to] = prevs[k][to];
-          }
-        }
-      }
-    }
-
-    return res;
-  }
-
-  auto remove_edge(std::size_t from, std::size_t to) -> void {
-    mat[from][to] = inf;
-  }
-};
-
-template <typename T>
-struct undirected_edge {
-  std::size_t node1, node2;
-  T weight;
-  undirected_edge(std::size_t n1, std::size_t n2, T weight) {
-    node1 = n1, node2 = n2;
-    this->weight = weight;
-  }
-  bool operator==(const undirected_edge &e) const {
-    if (((node1 == e.node1 && node2 == e.node2) ||
-         (node2 == e.node1 && node1 == e.node2)) &&
-        weight == e.weight) {
-      return true;
-    }
-    return false;
-  }
-  bool operator<(const undirected_edge &e) const { return weight < e.weight; }
-};
-
-template <typename T>
-class adjacent_list {
-  struct to_edge {
-    std::size_t destination;
-    T distance;
+    template <typename... Args>
+    HeadEdge(size_t head, Args &&...args)
+        : head_(head), weight_(std::forward<Args>(args)...) {}
   };
-  std::size_t node_num;
-  std::vector<std::list<to_edge>> edges;
-  T inf;
+
   template <typename Func, typename... Args>
-  auto dfs(std::size_t curr, std::vector<unsigned char> &visited, Func func,
-           Args... args) -> void {
+  void dfs(size_t curr, Func func, std::vector<uint8_t> &visited,
+           Args &&...args) {
+    func(curr, nodes_[curr], std::forward<Args>(args)...);
     visited[curr] = true;
-    func(curr, std::forward<Args>(args)...);
-    for (auto &it : edges[curr]) {
-      if (!visited[it.destination]) {
-        dfs(it.destination, visited, func, std::forward<Args>(args)...);
+
+    for (auto &it : edges_[curr]) {
+      if (!visited[it.head_]) {
+        dfs(it.head_, func, visited, std::forward<Args>(args)...);
       }
     }
   }
 
+ private:
+  std::vector<std::list<HeadEdge>> edges_;
+  std::vector<DataType> nodes_;
+  EdgeType inf_;
+  size_t size_;
+
  public:
-  auto kruskal() -> std::vector<undirected_edge<T>> {
-    std::vector<undirected_edge<T>> edge_set;
-    dsu set_union(node_num);
-    std::vector<undirected_edge<T>> res;
+  // 添加一条边
+  // 这里考虑到构造函数的多样性,
+  // 所以我们在简单函数上, 全程使用可变参数模板.
+  // 使用完美转发机制保证全程无多余的对象构造.
+  template <typename... Args>
+  void addEdge(size_t from, size_t to, Args &&...weight) {
+    edges_[from].emplace_back(to, std::forward<Args>(weight)...);
+  }
 
-    for (auto idx = 0uz; idx < node_num; idx++) {
-      for (auto &to_edge : edges[idx]) {
-        if (idx < to_edge.destination) {  // 只加 (u,v) 而不加 (v,u)
-          edge_set.emplace(idx, to_edge.destination, to_edge.distance);
-        }
-      }
-    }
-    std::stable_sort(edge_set);
-
-    std::size_t cnt = 0;
-
-    for (auto &edge : edge_set) {
-      if (cnt >= node_num - 1) {
+  // 删除一条边
+  // 返回值代表是否成功删除.
+  // 如果成功返回true
+  // 否则返回false
+  void removeEdge(size_t from, size_t to) {
+    for (auto it = edges_[from].begin(); it != edges_[from].end(); it++) {
+      if (it->head_ == to) {
+        edges_[from].erase(it);
         break;
       }
+    }
+    return;
+  }
 
-      auto root1(set_union.findRoot(edge.node1));
-      auto root2(set_union.findRoot(edge.node2));
+  // 删除很多条边.
+  // 这里可以传入你最多要删除的边的数量.
+  void removeEdge(size_t from, size_t to, size_t max_cnt) {
+    if (max_cnt == 0) {
+      return;
+    }
 
-      if (root1 == root2) {
+    size_t cnt = 0;
+    for (auto it = edges_[from].begin(); it != edges_[from].end();) {
+      if (it->head_ == to) {
+        assert(cnt <= max_cnt);
+        [[assume(cnt <= max_cnt)]];
+        if (cnt >= max_cnt) {
+          break;
+        }
+        auto old_it = it;
+        it++;
+        edges_[from].erase(old_it);
+        cnt++;
         continue;
       }
-
-      cnt++;
-      res.emplace_back(edge);
-      set_union.unite(edge.node1, edge.node2);
+      it++;
     }
 
-    return res;
+    return;
   }
 
-  adjacent_list(std::size_t node_number)
-      : node_num(node_number), edges(node_number), inf(10000000) {}
+  // 构造函数
+  // 必须确定图的点数和边数
+  template <typename... Args>
+  DirectedAdjList(size_t size, Args &&...inf)
+      : edges_(size, std::list<HeadEdge>()),
+        nodes_(size),
+        inf_(std::forward<Args>(inf)...),
+        size_(size) {}
 
-  adjacent_list(std::size_t node_number, const T &inf)
-      : node_num(node_number), edges(node_number), inf(inf) {}
+  // 深度优先搜索, 从start节点开始,
+  // 函数Func需要接受如下参数:
+  // 参数1: 节点下标, 类型为size_t
+  // 参数2: 节点的数据, 这个视情况而定.
+  // 参数3: Args, 表达剩余参数.
+  template <typename Func, typename... Args>
+  void dfs(size_t start, Func func, Args &&...args) {
+    std::vector<uint8_t> visited(size_, 0);
 
-  auto dijkstra(std::size_t from) -> std::vector<T> {
-    if (from >= node_num) {
-      throw std::invalid_argument("The starting point is to large!");
+    dfs(start, func, visited, std::forward<Args>(args)...);
+  }
+
+  // 广度优先搜索.
+  template <typename Func, typename... Args>
+  void bfs(size_t start, Func func, Args &&...args) {
+    std::queue<size_t> waiting_list;
+    std::vector<uint8_t> visited(size_, 0);
+    waiting_list.push(start);
+
+    while (!waiting_list.empty()) {
+      auto curr = waiting_list.front();
+      waiting_list.pop();
+      if (!visited[curr]) {
+        func(curr, nodes_[curr], std::forward<Args>(args)...);
+        visited[curr] = true;
+
+        for (auto &it : edges_[curr]) {
+          if (!visited[it.head_]) {
+            waiting_list.push(it.head_);
+          }
+        }
+      }
     }
+  }
 
-    std::vector<T> dests(node_num, inf);
-    dests[from] = 0;
-    std::vector<unsigned char> visited(node_num, false);
-    struct node_with_dist {
-      std::size_t pos;
-      T dist;
-      node_with_dist(size_t pos, const T &dist) : pos(pos), dist(dist) {}
-      bool operator<(const node_with_dist &a) const { return dist > a.dist; }
+  // 迪杰斯特拉算法,
+  // 梦开始的地方...
+  std::vector<size_t> dijkstra(size_t start, std::vector<EdgeType> &dist) {
+    // 创建一个节点, 这里可以用来存储我们待加入的节点以及路程.
+    struct NodeWithDistance {
+      size_t idx;
+      DataType distance;
+      NodeWithDistance() = default;
+      NodeWithDistance(size_t idx, const DataType &dat)
+          : idx(idx), distance(dat) {}
+      NodeWithDistance(size_t idx, DataType &&dat)
+          : idx(idx), distance(std::move(dat)) {}
+      bool operator<(const NodeWithDistance &n) const {
+        return this->distance > n.distance;
+      }
+
+      bool operator<(NodeWithDistance &&n) const {
+        return this->distance > n.distance;
+      }
     };
-    std::priority_queue<node_with_dist> heap;
-    heap.emplace(from, 0);
 
-    for (std::size_t i = 0; i < node_num && !heap.empty(); i++) {
-      auto to_proc = heap.top().pos;
-      heap.pop();
+    // prev数组代表的是每个点的上一个节点,
+    // 在返回是, prev数组存储的是最优路径上,
+    // 每个节点的上一个节点.
+    // 如果存储了自己, 那么要么是走不动了,
+    // 要么是到起点了.
+    // 需要的话, 自己用个栈倒一下就行.
+    std::vector<size_t> prev(size_, 0);
+    std::vector<uint8_t> visited(size_, false);
 
-      // Find the unvisited node with the shortest distance.
-      bool flag = false;
-      while (visited[to_proc] == true) {
-        if (heap.empty()) {
-          flag = true;
+    // 所谓堆优化, 就是保持一个优先队列.
+    // 每次知道了从起点到一个点的距离, 就加入一条路径.
+    // 不用是最优的路径, 只要每次找到一个节点的更优路径就好了.
+    std::priority_queue<NodeWithDistance> pqueue;
+    // 插入第一个点, 因为自己到自己的距离是已知的.
+    pqueue.emplace(start, 0);
+
+    // 更新从起点到各点的距离.
+    dist.resize(size_);
+    // 一般来讲, 起点到所有节点的距离是无穷的.
+    for (size_t i = 0; i < size_; i++) {
+      prev[i] = i;
+      dist[i] = inf_;
+    }
+    // 自己到自己的距离为0.
+    dist[start] = 0;
+
+    // 计数机制, 这里主要是等不及那个pqueue跑空.
+    // 因为最多更新N次, 所以是cnt >= N就直接退出.
+    size_t cnt = 0;
+    while (!pqueue.empty()) {
+      // 如果更新了N个点, 那就退出.
+      if (cnt >= size_) {
+        break;
+      }
+
+      // 从优先队列中弹出一个节点.
+      auto curr_node = pqueue.top();
+      pqueue.pop();
+
+      // 如果这个点的权重没有被确定,
+      // 那么我们就找到了当前未被确定的点中最优的那个.
+      // 和传统的Dijkstra一样.
+      // 这里我们的就是每次找到当前没有被确定距离的点中,
+      // 距离起点最短的节点.
+      if (!visited[curr_node.idx]) {
+        if (curr_node.distance == inf_) {
           break;
         }
-        to_proc = heap.top().pos;
-        heap.pop();
-      }
-      if (flag) {
-        break;
-      }
-      if (dests[to_proc] == inf) {
-        break;
-      }
+        visited[curr_node.idx] = true;
+        cnt++;
 
-      for (auto &it : edges[to_proc]) {
-        if (it.distance == inf) {
-          continue;
-        }
-        auto dist = it.distance + dests[to_proc];
-        if (dist >= inf) {
-          continue;
-        }
-        if (dist < dests[it.destination]) {
-          node_with_dist node(it.destination, dist);
-          dests[it.destination] = dist;
-          heap.emplace(std::move(node));
+        auto curr_node_idx = curr_node.idx;
+        for (const auto &it : edges_[curr_node_idx]) {
+          // 松弛操作.
+          if (it.weight_ < dist[it.head_] - dist[curr_node_idx]) {
+            // 如果发现了一条更短的边.
+            // 将这个节点连带边权加入pqueue.
+            dist[it.head_] = it.weight_ + dist[curr_node_idx];
+            prev[it.head_] = curr_node_idx;
+            pqueue.emplace(it.head_, dist[it.head_]);
+          }
         }
       }
     }
-
-    return dests;
+    return prev;
   }
 
-  void add_edge(std::size_t from, std::size_t to, const T &distance) {
-    if (from >= node_num || to >= node_num) {
-      throw std::invalid_argument("The arg from or to is too large");
+  bool spfa(size_t start, std::vector<EdgeType> &dist,
+            std::vector<size_t> &prev) {
+    prev.resize(size_);
+    for (size_t i = 0; i < size_; i++) {
+      prev[i] = i;
     }
-    to_edge e = {.destination = to, .distance = distance};
-    edges[from].push_back(e);
-  }
+    dist.resize(size_, inf_);
+    dist[start] = 0;
+    std::queue<size_t> queue;
+    std::vector<uint8_t> in_queue(size_, 0);
+    queue.push(start);
+    in_queue[start] = true;
+    std::vector<size_t> visit_cnt(size_, 0);
 
-  auto spfa(std::size_t from, std::vector<T> &res) -> bool {
-    if (from >= node_num) {
-      throw std::invalid_argument("The starting point is to large!");
-    }
+    while (!queue.empty()) {
+      auto curr = queue.front();
+      queue.pop();
+      in_queue[curr] = false;
 
-    res.clear();
-    res.resize(node_num, inf);
-    res[from] = 0;
-    std::queue<std::size_t> q;
-    q.push(from);
-    std::vector<unsigned char> in_queue(node_num, false);
-    std::vector<std::size_t> cnt(node_num, 0);
-    in_queue[from] = true;
+      for (auto &it : edges_[curr]) {
+        if ((it.weight_ < dist[it.head_]) &&
+            (dist[curr] < dist[it.head_] - it.weight_)) {
+          visit_cnt[it.head_] = visit_cnt[curr] + 1;
+          dist[it.head_] = it.weight_ + dist[curr];
+          prev[it.head_] = curr;
 
-    while (!q.empty()) {
-      std::size_t to_proc = q.front();
-      q.pop();
-      in_queue[to_proc] = false;
-
-      for (auto &it : edges[to_proc]) {
-        if (res[to_proc] == inf || it.distance > inf - res[to_proc]) {
-          continue;
-        }
-        auto dist = it.distance + res[to_proc];
-        if (dist < res[it.destination]) {
-          res[it.destination] = dist;
-          cnt[it.destination] = cnt[to_proc] + 1;
-          if (cnt[it.destination] >= node_num) {
+          if (visit_cnt[it.head_] >= size_) {
             return false;
           }
-          if (!in_queue[it.destination]) {
-            q.push(it.destination);
-            in_queue[it.destination] = true;
+
+          if (!in_queue[it.head_]) {
+            queue.push(it.head_);
+            in_queue[it.head_] = true;
           }
         }
       }
@@ -522,151 +287,115 @@ class adjacent_list {
     return true;
   }
 
-  auto dijkstra(std::size_t from, std::vector<size_t> &prev) -> std::vector<T> {
-    if (from >= node_num) {
-      throw std::invalid_argument("The starting point is to large!");
-    }
-
-    std::vector<T> dests(node_num, inf);
-    dests[from] = 0;
-    std::vector<unsigned char> visited(node_num, false);
-    struct node_with_dist {
-      std::size_t pos;
-      T dist;
-      node_with_dist(size_t pos, const T &dist) : pos(pos), dist(dist) {}
-      bool operator<(const node_with_dist &a) const { return dist > a.dist; }
-    };
-    std::priority_queue<node_with_dist> heap;
-    heap.emplace(from, 0);
-    prev.clear();
-    prev.resize(node_num, SIZE_MAX);
-
-    for (std::size_t i = 0; i < node_num && !heap.empty(); i++) {
-      auto to_proc = heap.top().pos;
-      heap.pop();
-
-      // Find the unvisited node with the shortest distance.
-      bool flag = false;
-      while (visited[to_proc] == true) {
-        if (heap.empty()) {
-          flag = true;
-          break;
-        }
-        to_proc = heap.top().pos;
-        heap.pop();
-      }
-      if (flag) {
-        break;
-      }
-      if (dests[to_proc] == inf) {
-        break;
-      }
-
-      for (auto &it : edges[to_proc]) {
-        if (it.distance == inf) {
-          continue;
-        }
-        auto dist = it.distance + dests[to_proc];
-        if (dist >= inf) {
-          continue;
-        }
-        if (dist < dests[it.destination]) {
-          node_with_dist node(it.destination, dist);
-          dests[it.destination] = dist;
-          heap.emplace(std::move(node));
-          prev[it.destination] = to_proc;
-        }
-      }
-    }
-
-    return dests;
-  }
-
-  auto spfa(std::size_t from, std::vector<T> &res,
-            std::vector<std::size_t> &prev) -> bool {
-    if (from >= node_num) {
-      throw std::invalid_argument("The starting point is to large!");
-    }
-
-    res.clear();
-    res.resize(node_num, inf);
-    res[from] = 0;
-    std::queue<std::size_t> q;
-    q.push(from);
-    std::vector<unsigned char> in_queue(node_num, false);
-    std::vector<std::size_t> cnt(node_num, 0);
-    in_queue[from] = true;
-    prev.clear();
-    prev.resize(node_num, SIZE_MAX);
-
-    while (!q.empty()) {
-      std::size_t to_proc = q.front();
-      q.pop();
-      in_queue[to_proc] = false;
-
-      for (auto &it : edges[to_proc]) {
-        if (res[to_proc] == inf || it.distance > inf - res[to_proc]) {
-          continue;
-        }
-        auto dist = it.distance + res[to_proc];
-        if (dist < res[it.destination]) {
-          prev[it.destination] = to_proc;
-          res[it.destination] = dist;
-          cnt[it.destination] = cnt[to_proc] + 1;
-          if (cnt[it.destination] >= node_num) {
-            return false;
-          }
-          if (!in_queue[it.destination]) {
-            q.push(it.destination);
-            in_queue[it.destination] = true;
-          }
-        }
-      }
-    }
-    return true;
-  }
-
-  template <typename Func, typename... Args>
-  auto dfs(std::size_t start, Func func, Args... args) -> void {
-    if (start >= node_num) {
-      throw std::invalid_argument(
-          "The index of the starting point is too large!");
-    }
-    std::vector<unsigned char> visited(node_num, 0);
-    dfs(start, visited, func, std::forward<Args>(args)...);
-  }
-
-  template <typename Func, typename... Args>
-  auto bfs(std::size_t start, Func func, Args... args) -> void {
-    if (start >= node_num) {
-      throw std::invalid_argument(
-          "The index of the starting point is too large!");
-    }
-
-    std::queue<std::size_t> q;
-    q.push(start);
-    std::vector<unsigned char> visited(node_num, false);
-
-    while (!q.empty()) {
-      std::size_t curr = q.front();
-      q.pop();
-      func(curr, std::forward<T>(args)...);
-      for (auto &it : edges[curr]) {
-        if (!visited[it.destination]) {
-          q.push(it.destination);
-        }
-      }
-    }
-  }
-
-  auto remove_edge(std::size_t from, std::size_t to) {
-    for (auto it = edges[from].begin(); it != edges[from].end();) {
-      auto old_it = it;
-      it = std::next(it);
-
-      if (old_it->destination == to) {
-        edges[from].erase(old_it);
-      }
-    }
-  }
+  DataType &operator[](size_t idx) { return nodes_[idx]; }
 };
+
+template <typename EdgeType, class DataType = char>
+struct DirectedAdjMatrix {
+  std::vector<std::vector<EdgeType>> edges_;
+  std::vector<DataType> nodes_;
+  EdgeType inf_;
+  size_t size_;
+
+  auto floyd(std::vector<std::vector<EdgeType>> &dist)
+      -> std::vector<std::vector<size_t>> {
+    dist.resize(size_, std::vector<EdgeType>(size_, inf_));
+    std::vector<std::vector<size_t>> prev(size_, std::vector<size_t>(size_));
+    for (size_t i = 0; i < size_; i++) {
+      for (size_t j = 0; j < size_; j++) {
+        dist[i][j] = edges_[i][j];
+        if (edges_[i][j] != inf_) {
+          prev[i][j] = i;
+        } else {
+          prev[i][j] = j;
+        }
+      }
+    }
+
+    for (size_t k = 0; k < size_; k++) {
+      for (size_t i = 0; i < size_; i++) {
+        for (size_t j = 0; j < size_; j++) {
+          if (dist[i][j] > dist[i][k] && dist[k][j] < dist[i][j] - dist[i][k]) {
+            prev[i][j] = prev[k][j];
+            dist[i][j] = dist[i][k] + dist[k][j];
+          }
+        }
+      }
+    }
+
+    return prev;
+  }
+
+  DirectedAdjMatrix(size_t size, const EdgeType &inf)
+      : size_(size), inf_(inf) {}
+
+  DirectedAdjMatrix(size_t size, EdgeType &&inf)
+      : size_(size), inf_(std::move(inf)) {}
+
+  void addEdge(size_t from, size_t to, const DataType &weight) {
+    edges_[from][to] = weight;
+  }
+
+  void removeEdge(size_t from, size_t to) { edges_[from][to] = inf_; }
+
+  DataType &operator[](size_t idx) { return nodes_[idx]; }
+};
+
+template <typename T>
+struct Edge {
+  size_t p1, p2;
+  T weight;
+};
+
+template <typename T>
+std::vector<Edge<T>> kruskal(std::vector<Edge<T>> edges) {
+  std::sort(edges.begin(), edges.end(),
+            [](const auto &a, const auto &b) { return a.weight < b.weight; });
+  dsu visited(edges.size());
+
+  std::vector<Edge<T>> res;
+  for (auto &it : res) {
+    if (visited.inSameTree(it.p1, it.p2)) {
+      res.emplace_back(it);
+      visited.unite(it.p1, it.p2);
+    }
+  }
+
+  return res;
+}
+
+}  // namespace graph
+
+int main() {
+  using namespace graph;
+
+  DirectedAdjList<int> g(10, 100);
+  g.addEdge(1, 2, 1);
+  g.addEdge(2, 4, 3);
+  g.addEdge(1, 0, 4);
+  g.addEdge(0, 9, 6);
+  g.addEdge(1, 7, 3);
+  g.addEdge(1, 8, 2);
+  g.addEdge(6, 7, 1);
+  g.addEdge(7, 2, 6);
+  g.removeEdge(1, 2, 2);
+  std::vector<int> d;
+  std::vector<size_t> p;
+  g[0] = 'a';
+  g[1] = 'b';
+  g[2] = 'c';
+  g[3] = 'd';
+  g[4] = 'e';
+  g[5] = 'f';
+  g[6] = 'g';
+  g[7] = 'h';
+  g[8] = 'i';
+  g[9] = 'j';
+  auto r = g.spfa(1, d, p);
+  for (auto it : d) {
+    std::cout << it << std::endl;
+  }
+  g.bfs(2, [](size_t idx, char ch) {
+    std::println(std::cout, "node {} is {}", idx, ch);
+  });
+}

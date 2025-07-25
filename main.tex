@@ -1,4 +1,4 @@
-\documentclass[a4paper]{ctexart}
+\documentclass[a4paper]{ctexbook}
 \usepackage[dvipsnames]{xcolor}  % 扩展颜色支持
 \usepackage{listings}  % 代码高亮宏包
 \usepackage[hidelinks]{hyperref}
@@ -75,21 +75,50 @@
         co\_yield, char8\_t, char16\_t, char32\_t
     }
 }
-
-\title{C++ 基础算法示例}
-\author{Haoming Bai}
-
 \begin{document}
-\maketitle
-\tableofcontents
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
 
-\section{概念}
+  % 封面主图占位符，可替换为实际图片文件
+  % \includegraphics[width=0.5\textwidth]{cover_image1_placeholder}\\[1.5cm]
+
+  % 书名与副标题，中间使用 en-dash
+  {\Huge\bfseries 基础算法示例 -- C++实现\par}
+  \vspace{2cm}
+  % 作者、机构等信息（可修改）
+  {\Large 作者：Haoming Bai\par}
+  \vfill
+
+  % 两个小图占位符
+  % \begin{figure}[h]
+  %   \centering
+  %   \includegraphics[width=0.2\textwidth]{cover_image2_placeholder}
+  %   \hspace{1cm}
+  %   \includegraphics[width=0.2\textwidth]{cover_image3_placeholder}
+  % \end{figure}
+  % \vfill
+
+  % 出版日期
+  {\large \today\par}
+\end{titlepage}
+
+% 目录页
+\clearpage
+\addcontentsline{toc}{chapter}{目录}
+\tableofcontents
+\clearpage
+
+% 正文开始
+\mainmatter
+
+\chapter{概念}
 
 Concept (概念) 是本 C++ 模板的一项核心概念. "概念"引进于 C++20, 是通过一些限定的组合, 进而约束模板的适用范围, 同时也给代码补全器提供便利. 模板还可以简化报错信息, 将抽象的重载决议简化为条件不满足. 例如在 "Addable" 这个概念出现后, 用户可以知道自己传入的参数类型不满足加法性质, 而不是奇怪地在层层编译器的堆栈展开之后, 发现自己的类型不能满足标准库中的一个奇怪函数. 本章节仅覆盖了最常用的一些基础概念, 一些不够常用的概念会分布在各个章节之中. 在本模板中, 除去图论, 红黑树部分由于编写时间较早或一些其它特殊原因, 并未使用概念以外, 所有代码都使用概念进行约束.
 
 \lstinputlisting[language=C++, caption=concepts.cpp, style=MyCStyle]{./concepts.cpp}
 
-\section{图论}
+\chapter{图论}
 
 图是计算机数据结构中最复杂的结构之一. 图论 (Graph theory) 是数学的一个分支, 图是图论的主要研究对象. 图 (Graph) 是由若干给定的顶点及连接两顶点的边所构成的图形, 这种图形通常用来描述某些事物之间的某种特定关系. 顶点用于代表事物, 连接两顶点的边则用于表示两个事物间具有这种关系.
 
@@ -99,15 +128,15 @@ Concept (概念) 是本 C++ 模板的一项核心概念. "概念"引进于 C++20
 
 \lstinputlisting[language=C++, caption=graph.cpp, style=MyCStyle]{./graph.cpp}
 
-\section{数据结构}
+\chapter{数据结构}
 
-数据结构是大学计算机专业的第一门专业课, 也是西北工业大学计算机基础教学中心的副主任姜学锋教授眼中对于算法能力帮助最大的一门课. 常见的在课上会提及的数据结构在 C++ 的标准库中通常都有, 或者存在更好的平替, 那么只要记住 ADT, 然后在编程中使用标准的实现就足够了. 这里关注的是那些不常见的.
+数据结构是大学计算机专业的第一门专业课, 也是ICPC共同主席, 西北工业大学计算机基础教学中心的副主任姜学锋教授眼中对于算法能力帮助最大的一门课. 常见的在课上会提及的数据结构在 C++ 的标准库中通常都有, 或者存在更好的平替, 那么只要记住 ADT, 然后在编程中使用标准的实现就足够了. 这里关注的是那些不常见的数据结构.
 
-\subsection{线段树}
+\section{线段树}
 
 线段树是算法竞赛中常用的用来维护区间信息的数据结构. 线段树可以在 $O(\log(N))$ 的时间复杂度内实现单点修改, 区间修改, 区间查询 (区间求和, 求区间最大值, 求区间最小值) 等操作. 线段树存在两种常见的存储方案. 一种是朴素地使用数组存储数据, 然后通过一系列的计算, 维护节点在树中的位置和下标的关系, 这种方法常数小, 但是写起来很复杂, 也不够灵活. 另外一种是使用 "动态开点" 的算法, 使用链式结构的二叉树, 同时使用线性的方法开辟内存空间, 这样就可以简化代码, 同时保证速度. 后一种方案可以把线段树写的很大, 同时可以支持持久化等高阶操作.
 
-\subsubsection*{朴素线段树}
+\subsection*{朴素线段树}
 
 朴素线段树基于分治思想构建二叉树: 根节点覆盖整个区间, 每个非叶节点递归二分其区间 (左子树 $[l, mid]$, 右子树 $[mid+1, r]$) , 叶节点对应单元素区间. 节点存储区间聚合信息 (如和/最值) , 更新时自底向上回溯修正受影响的节点值, 查询时合并目标区间的分解子区间结果. 其优势在于: 
 \begin{itemize}
@@ -124,7 +153,7 @@ Concept (概念) 是本 C++ 模板的一项核心概念. "概念"引进于 C++20
 
 \lstinputlisting[language=C++, caption=segment\_tree/simple\_segtree.cpp, style=MyCStyle]{./segment_tree/simple_segtree.cpp}
 
-\subsection*{可持久化线段树}
+\section*{可持久化线段树}
 
 与之前介绍的普通线段树不同, 可持久化线段树 (persistent segment tree) 并非在原地修改节点, 而是通过“路径复制”创建一个新的版本, 旧版本仍可保存历史记录. 这意味着每次更新操作仅复制涉及的那条从根到叶的路径节点, 其他未改动的节点被共享使用, 因此可以高效维护多个历史状态, 而普通线段树更新会破坏原结构, 不支持版本回溯. 
 
@@ -136,21 +165,21 @@ Concept (概念) 是本 C++ 模板的一项核心概念. "概念"引进于 C++20
 
 \lstinputlisting[language=C++, caption=segment\_tree/persistent\_segtree.cpp, style=MyCStyle]{./segment_tree/persistent_segtree.cpp}
 
-\subsection{并查集}
+\section{并查集}
 
 并查集 (Disjoint Set Union, DSU) 是一种高效处理集合合并与查询的数据结构, 常用于解决元素分组, 连通性判断等问题. 在算法竞赛中, 它被广泛应用于图论相关题目, 尤其是在处理无向图的连通分量, 最小生成树 (如 Kruskal 算法) 以及等价关系建模中. 例如, 给定若干合并操作与查询操作, 并查集可以在接近常数时间内判断两个元素是否属于同一集合, 极大提升算法效率. 此外, 在图像识别, 网络社群划分, 物理模拟等实际问题中, 并查集也同样展现了其强大的应用价值.
 
 \lstinputlisting[language=C++, caption=dsu.cpp, style=MyCStyle]{./dsu.cpp}
 
-\subsection{ST表}
+\section{ST表}
 
 ST表是一种很简单的数据结构, 在特定的题目里面比线段树的解法常数小, 因此还是应该掌握. ST表适用于这样一种场景: 可重复贡献的场景下的反复查询. ST表的查询非常快, 可以达到最坏 $O(1)$ 的量级, 但是ST表只能用于那种 $x*x=x$ 的特殊运算, 且不能进行修改.
 
 \lstinputlisting[language=C++, caption=sparce\_table.cpp, style=MyCStyle]{./sparce_table.cpp}
 
-\subsection{平衡搜索树}
+\section{平衡搜索树}
 
-\subsubsection*{C语言版本红黑树}
+\subsection*{C语言版本红黑树}
 
 红黑树是一种高效的自平衡二叉搜索树. 它通过在普通二叉搜索树的基础上增加额外的信息 (节点颜色: 红或黑) 和遵循一组严格的规则 (红黑规则: 如根节点黑, 红色节点子必黑, 任一节点到叶子的路径包含相同数量黑节点等), 确保树在动态插入和删除操作后能保持相对平衡. 这种平衡性是其高效性能的关键.
 
@@ -160,7 +189,7 @@ ST表是一种很简单的数据结构, 在特定的题目里面比线段树的�
 
 \lstinputlisting[language=C++, caption=rb\_tree\_c\_ver.c, style=MyCStyle]{./rb_tree_c_ver.c}
 
-\subsubsection*{AI辅助完成的自平衡二叉搜索树}
+\subsection*{AI辅助完成的自平衡二叉搜索树}
 
 AVL树是一种严格自平衡的二叉搜索树. 它通过在普通二叉搜索树的基础上增加额外的平衡信息 (节点高度) 和遵循一组严格的平衡规则 (AVL规则: 任意节点的左右子树高度差绝对值不超过1) , 确保树在动态插入和删除操作后能通过旋转操作自动恢复完美平衡. 这种近乎苛刻的平衡性是其提供最坏情况下高效查询性能的关键保障.
 
@@ -168,7 +197,7 @@ AVL树是一种严格自平衡的二叉搜索树. 它通过在普通二叉搜索
 
 \lstinputlisting[language=C++, caption=avl.cpp, style=MyCStyle]{./avl.cpp}
 
-\subsubsection*{AI完成的B+树}
+\subsection*{AI完成的B+树}
 
 B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它通过在普通树结构上引入独特的节点设计 (内部节点仅存储索引键, 所有数据记录集中在叶节点) 和严格的层级规则 (叶节点形成有序链表, 非叶节点充当导航索引) , 确保在磁盘I/O密集型操作中实现极低高度的平衡结构. 这种分层组织方式是其成为现代数据库系统和文件系统核心引擎的关键优势, 特别擅长范围查询和顺序访问.
 
@@ -176,13 +205,30 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 
 \lstinputlisting[language=C++, caption=bplus\_tree.c, style=MyCStyle]{./bplus_tree.cpp}
 
-\section{散列方法}
+\section{单调队列}
+单调队列是一种基于队列的数据结构, 主要的作用是求解固定滑动窗口的最大值/最小值问题. 这种数据结构满足:
+\begin{itemize}
+  \item 队列内满足单调性
+  \item 插入新元素时通过从队尾弹出元素保持单调性
+\end{itemize}
+
+本实现还附带了一个滑动窗口最大值的简单实现 (队列单调递减).
+
+\lstinputlisting[language=C++, caption=mono\_queue.cpp, style=MyCStyle]{./mono_queue.cpp}
+
+\section{单调栈}
+
+单调栈和单调队列是同样的原理, 只是和单调队列不同, 它从栈顶弹出元素.
+
+\lstinputlisting[language=C++, caption=mono\_stack.cpp, style=MyCStyle]{./mono_stack.cpp}
+
+\chapter{散列方法}
 
 如果数据的范围过大, 就需要一些快速方法缩小这个范围. 例如对于1000个自然数-字符串对, 完全可以使用数组存储, 使用下标代表key, 但是如果简单地使用数组, 一旦数据中出现一个1000000000000-"xyz", 那么内存占用就会过大. 这时候, 合适的散列方法就相当重要.
 
 \lstinputlisting[language=C++, caption=hash\_methods.cpp, style=MyCStyle]{./hash_methods.cpp}
 
-\section{计算几何}
+\chapter{计算几何}
 
 图形学是计算机的一个重要分支. 在计算机图形学中, 我们常常需要处理图形的构造, 变换与交互, 例如判断两个物体是否相交, 生成可视化模型的边界, 或进行光线追踪渲染. 这些看似图形学的问题, 其背后往往依赖于严密的几何计算逻辑. 计算几何正是处理这类问题的基础学科, 它研究如何通过算法和数据结构来解决几何对象之间的关系与操作, 如求交, 最近点对, 凸包, 半平面交等问题.
 
