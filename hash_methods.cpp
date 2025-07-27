@@ -10,8 +10,9 @@
  * @details
  */
 
+#include <algorithm>
 #include <cstddef>
-#include <map>
+#include <cstdint>
 #include <vector>
 
 #include "concepts.cpp"
@@ -50,37 +51,49 @@
  */
 
 class Descretization {
-  std::vector<size_t> hash_val;
-  std::map<size_t, size_t> val_hash;
+  std::vector<size_t> hash_val_;
 
  public:
   template <typename Container>
     requires(RandomAccessContainer<Container, size_t>)
-  Descretization(const Container &arr) {
-    for (auto &it : arr) {
-      val_hash[it] = 0;
+  Descretization(const Container &arr) : hash_val_(arr.size()) {
+    for (size_t i = 0; i < arr.size(); i++) {
+      hash_val_[i] = arr[i];
     }
 
-    hash_val.reserve(val_hash.size() + 1);
-    hash_val.push_back(0);
-
-    size_t cnt = 1;
-    for (auto &it : val_hash) {
-      it.second = cnt;
-      hash_val.push_back(it.first);
-      cnt++;
-    }
+    // 排序, 用下标作为哈希.
+    std::sort(hash_val_.begin(), hash_val_.end());
+    // 去重.
+    hash_val_.erase(std::unique(hash_val_.begin(), hash_val_.end()),
+                    hash_val_.end());
   }
 
-  size_t hash(size_t val) { return val_hash[val]; }
+  // 获得hash
+  size_t hash(size_t val) {
+    // 用lower_bound查找第一个大于或等于某个元素的位置
+    auto pos = std::lower_bound(hash_val_.begin(), hash_val_.end(), val);
 
-  size_t dehash(size_t hash) { return hash_val[hash]; }
+    // 没找到返回...
+    if (*pos > val) {
+      return SIZE_MAX;
+    }
 
+    // 找到等于了...
+    return pos - hash_val_.begin();
+  }
+
+  // 从hash获取原元素值.
+  size_t dehash(size_t hash) {
+    if (hash >= hash_val_.size()) {
+      return SIZE_MAX;
+    }
+
+    return hash_val_[hash];
+  }
+
+  // 获取当前离散化的最大和最小散列值.
   size_t getMaxHash() {
-    return val_hash.rbegin()->second;
+    return hash_val_.size() > 0 ? hash_val_.size() - 1 : 0;
   }
-
-  size_t getMinHash() {
-    return val_hash.begin()->second;
-  }
+  size_t getMinHash() { return 0; }
 };
