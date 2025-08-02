@@ -351,11 +351,11 @@ template <typename T>
 std::vector<Edge<T>> kruskal(std::vector<Edge<T>> edges) {
   std::sort(edges.begin(), edges.end(),
             [](const auto &a, const auto &b) { return a.weight < b.weight; });
-  dsu visited(edges.size());
+  DSU visited(edges.size());
 
   std::vector<Edge<T>> res;
   for (auto &it : res) {
-    if (visited.inSameTree(it.p1, it.p2)) {
+    if (visited.inSameSet(it.p1, it.p2)) {
       res.emplace_back(it);
       visited.unite(it.p1, it.p2);
     }

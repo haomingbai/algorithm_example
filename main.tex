@@ -80,10 +80,10 @@
   \centering
   \vspace*{2cm}
 
-  % 封面主图占位符，可替换为实际图片文件
+  % 封面主图占位符, 可替换为实际图片文件
   % \includegraphics[width=0.5\textwidth]{cover_image1_placeholder}\\[1.5cm]
 
-  % 书名与副标题，中间使用 en-dash
+  % 书名与副标题, 中间使用 en-dash
   {\Huge\bfseries 基础算法示例 -- C++实现\par}
   \vspace{2cm}
   % 作者、机构等信息（可修改）
@@ -235,5 +235,45 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 计算几何不仅服务于图形学本身, 在机器人路径规划, 地图导航系统, CAD设计, 物理引擎甚至算法竞赛中也发挥着重要作用. 它为图形学提供了强有力的理论与算法支持, 使得我们能以更高效, 更精确的方式处理二维或三维空间中的复杂几何问题.
 
 \lstinputlisting[language=C++, caption=geometry.cpp, style=MyCStyle]{./geometry.cpp}
+
+\chapter{字符串}
+
+在计算机系统中, 字符串作为信息的基本载体, 承载着从数据存储到逻辑控制的核心功能. 尤其在类Unix生态中, 诸如\texttt{grep}的文本搜索、\texttt{sed}的流编辑及\texttt{awk}的模式处理等工具, 均构建于高效字符串操作之上, 印证了Knuth「字符串处理是程序设计技术的试金石」的论断. 
+
+本章将实现字符串处理中的部分基础算法模板, 涵盖：
+\begin{itemize}
+    \item 字符串匹配（单模式/多模式）
+    \item 字典树与自动机
+\end{itemize}
+
+后续代码模板均以工业级效率为标准设计, 可直接应用于竞赛及工程场景. 
+
+\section{模式匹配}
+
+文本模式匹配是信息检索与文本处理的基石, 其效率直接影响搜索引擎响应速度、基因序列分析等关键场景的性能. 以Unix工具链为例, 当\texttt{grep}在GB级日志中检索模式时, 朴素匹配$O(nm)$的时间复杂度将导致灾难性延迟. 
+
+本节实现Knuth-Morris-Pratt(KMP)算法模板, 其核心在于：
+\begin{itemize}
+    \item 通过\textbf{失配函数}预处理模式串($O(m)$)
+    \item 实现$O(n)$时间复杂度匹配
+    \item 避免回溯的\textbf{状态机跳转}机制
+\end{itemize}
+代码设计支持动态模式更新与流式数据匹配, 可直接集成至文本处理系统. 
+
+\lstinputlisting[language=C++, caption=kmp.cpp, style=MyCStyle]{./str/kmp.cpp}
+
+\section{字典树}
+
+
+字典树 (Trie) 作为高效处理字符串集合的树形数据结构, 在搜索引擎自动补全、拼写检查及路由协议中具有不可替代性. 其核心优势在于：
+\begin{itemize}
+    \item \textbf{前缀共享}：具有公共前缀的字符串共享存储路径
+    \item \textbf{检索加速}：$O(L)$时间完成键查询（$L$为键长）
+    \item \textbf{字典序遍历}：天然支持按字典序访问所有键
+\end{itemize}
+
+本节实现基于数组的双版本Trie模板, 部分支持字符串的删除.
+
+\lstinputlisting[language=C++, caption=trie.cpp, style=MyCStyle]{./str/trie.cpp}
 
 \end{document}

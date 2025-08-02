@@ -1,5 +1,5 @@
 /**
- * @file dsu.cpp
+ * @file DSU.cpp
  * @brief
  * @author Haoming Bai <haomingbai@hotmail.com>
  * @date   2025-06-26
@@ -13,43 +13,53 @@
 #pragma once
 
 #include <cstddef>
+#include <utility>
 #include <vector>
 
-class dsu {
-  std::vector<std::size_t> parent;
+class DSU {
+  std::vector<std::size_t> parent_, size_;
 
  public:
-  dsu(std::size_t size) : parent(size) {
-    for (auto i = 0uz; i < parent.size(); i++) {
-      parent[i] = i;
+  DSU(std::size_t size) : parent_(size), size_(size, 1) {
+    for (auto i = 0ul; i < parent_.size(); i++) {
+      parent_[i] = i;
     }
   }
 
   std::size_t findRoot(std::size_t idx) {
-    if (parent[idx] == idx) {
-      return idx;
+    // 递归终止条件, 寻找到根或者当前位置高度为1(根为0).
+    if (parent_[idx] == idx || parent_[parent_[idx]] == parent_[idx]) {
+      return parent_[idx];
     }
 
-    std::size_t res = idx;
-    while (res != parent[res]) {
-      res = parent[res];
-    }
-
-    std::size_t curr = idx;
-    while (parent[curr] != res) {
-      auto to_modify = curr;
-      curr = parent[to_modify];
-      parent[to_modify] = res;
-    }
-
-    return res;
+    parent_[idx] = findRoot(parent_[idx]);
+    return parent_[idx];
   }
 
   void unite(std::size_t idx1, std::size_t idx2) {
-    parent[findRoot(idx2)] = findRoot(idx1);
+    // 先找到根节点, 因为只有根节点维护了大小数据.
+    idx1 = findRoot(idx1);
+    idx2 = findRoot(idx2);
+
+    // 如果二者根相同, 那么二者已经在同一集合.
+    if (idx1 == idx2) {
+      return;
+    }
+
+    // 因为要把2挂靠到1上, 所以下标1必须是较大的.
+    if (size_[idx1] < size_[idx2]) {
+      std::swap(idx1, idx2);
+    }
+
+    // 将2挂靠到1
+    parent_[idx2] = idx1;
+    // 此时1的树根是二者的共同树根, 所以只有1需要维护树大小.
+    // 1的树大小是原先二者树大小之和, 因为2树和1树合并了.
+    size_[idx1] += size_[idx2];
+    return;
   }
 
-  bool inSameTree(std::size_t idx1, std::size_t idx2) {
+  bool inSameSet(std::size_t idx1, std::size_t idx2) {
     return findRoot(idx1) == findRoot(idx2);
   }
 };

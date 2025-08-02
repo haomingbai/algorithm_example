@@ -97,3 +97,9 @@ concept FullyComparable = requires(T a, T b) {
   { a == b } -> std::convertible_to<bool>;
   { a > b } -> std::convertible_to<bool>;
 };
+
+template <typename Container, typename E>
+concept RandomResizableContainer =
+    RandomStdContainer<Container, E> && requires(Container arr, size_t x) {
+      { arr.resize(x) };
+    };
