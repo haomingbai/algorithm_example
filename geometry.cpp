@@ -1181,7 +1181,7 @@ auto convexHull(Container &&arr) -> Polygon2D<T>
       // 算叉积, 大于0算顺时针转动.
       auto cross = crossProductValue(v1, v2);
 
-      // 如果叉积大于0, 那么说明新加的边比上一套边是顺时针旋转的.
+      // 如果叉积大于0, 那么说明新加的边比上一套边是逆时针旋转的.
       // 这个时候就可以加入这个点并移动到下一个点
       if (cross >= 0) {
         lower.emplace_back(pt);

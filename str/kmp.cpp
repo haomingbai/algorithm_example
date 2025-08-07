@@ -49,11 +49,12 @@ size_t PatternMatching(const std::string_view src,
     return SIZE_MAX;
   }
   std::string str(pattern);
+  str.push_back(0);
   str += src;
 
   std::vector<size_t> prefixes;
   PrefixFunction<char>(prefixes, str);
-  for (size_t i = 0, offset = pattern.size(); i < src.size(); i++) {
+  for (size_t i = 0, offset = pattern.size() + 1; i < src.size(); i++) {
     if (prefixes[i + offset] >= pattern.size()) {
       // 让返回的下标指向第一次完成匹配的子串的第一个字符.
       return i - (offset - 1);

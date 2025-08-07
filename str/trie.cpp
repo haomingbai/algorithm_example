@@ -17,7 +17,7 @@
 #include <string_view>
 #include <vector>
 
-struct SimpleTrie {
+struct WeightedTrie {
   static const char start_ = 'a';
   struct TrieNode {
     // next数组代表这条边上下一个节点的下标.
@@ -41,7 +41,7 @@ struct SimpleTrie {
     return idx;
   }
 
-  SimpleTrie() : nodes_(1) {}
+  WeightedTrie() : nodes_(1) {}
 
   void reserve(size_t n) { nodes_.reserve(n); }
 
@@ -128,6 +128,7 @@ struct SimpleTrie {
   }
 
   bool remove(const std::string_view str, size_t num = 1) {
+    // 先检查待删除字符串是否存在.
     if (count(str) >= num) {
       removeUnchecked(str, num);
       return true;
