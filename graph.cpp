@@ -15,9 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <iostream>
 #include <list>
-#include <ostream>
 #include <queue>
 #include <utility>
 #include <vector>
@@ -348,14 +346,14 @@ struct Edge {
 };
 
 template <typename T>
-std::vector<Edge<T>> kruskal(std::vector<Edge<T>> edges) {
+std::vector<Edge<T>> Kruskal(std::vector<Edge<T>> edges) {
   std::sort(edges.begin(), edges.end(),
             [](const auto &a, const auto &b) { return a.weight < b.weight; });
   DSU visited(edges.size());
 
   std::vector<Edge<T>> res;
-  for (auto &it : res) {
-    if (visited.inSameSet(it.p1, it.p2)) {
+  for (auto &it : edges) {
+    if (!visited.inSameSet(it.p1, it.p2)) {
       res.emplace_back(it);
       visited.unite(it.p1, it.p2);
     }
@@ -365,37 +363,3 @@ std::vector<Edge<T>> kruskal(std::vector<Edge<T>> edges) {
 }
 
 }  // namespace graph
-
-int main() {
-  using namespace graph;
-
-  DirectedAdjList<int> g(10, 100);
-  g.addEdge(1, 2, 1);
-  g.addEdge(2, 4, 3);
-  g.addEdge(1, 0, 4);
-  g.addEdge(0, 9, 6);
-  g.addEdge(1, 7, 3);
-  g.addEdge(1, 8, 2);
-  g.addEdge(6, 7, 1);
-  g.addEdge(7, 2, 6);
-  g.removeEdge(1, 2, 2);
-  std::vector<int> d;
-  std::vector<size_t> p;
-  g[0] = 'a';
-  g[1] = 'b';
-  g[2] = 'c';
-  g[3] = 'd';
-  g[4] = 'e';
-  g[5] = 'f';
-  g[6] = 'g';
-  g[7] = 'h';
-  g[8] = 'i';
-  g[9] = 'j';
-  auto r = g.spfa(1, d, p);
-  for (auto it : d) {
-    std::cout << it << std::endl;
-  }
-  g.bfs(2, [](size_t idx, char ch) {
-    std::println(std::cout, "node {} is {}", idx, ch);
-  });
-}
