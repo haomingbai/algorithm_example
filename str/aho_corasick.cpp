@@ -367,3 +367,262 @@ struct AhoCorasick {
     fail_flag_ = false;
   }
 };
+
+/*
+  实现了拓扑排序优化的AC自动机.
+  模板参数:
+    START - 字母表起始字符 (例如 'a')
+    ALPH  - 字母表大小 (例如 26 表示 'a'..'z')
+  例子: AhoCorasickTopo<'a', 26> 表示小写英文字母自动机
+*/
+template <char START = 'a', size_t ALPH = 26>
+class AhoCorasickTopo {
+ public:
+  // ---- 常量 / 别名 ----
+  static constexpr char start_ = START;          // 字母表起始字符
+  static constexpr size_t alphabet_size = ALPH;  // 字母表大小
+  using idx_t = int;                             // 用于节点索引的整型别名
+
+  // 将字符映射到 0..ALPH-1 的索引.
+  // 如果字符不属于字母表, 则返回 -1.
+  // 特别地: 当 START == 'a' && ALPH == 26 时, 同时接受 'A'..'Z' (自动转小写) .
+  static inline int char_to_index(char c) {
+    unsigned char uc = static_cast<unsigned char>(c);
+    int idx = static_cast<int>(uc) - static_cast<int>(start_);
+    if (0 <= idx && static_cast<size_t>(idx) < alphabet_size) return idx;
+    // 兼容常见大小写情况 (仅当模板配置为小写26字母表时)
+    if constexpr (start_ == 'a' && alphabet_size == 26) {
+      if (uc >= 'A' && uc <= 'Z') {
+        return static_cast<int>(uc - 'A');  // 把大写当作对应小写处理
+      }
+    }
+    if constexpr (start_ == 'A' && alphabet_size == 26) {
+      if (uc >= 'a' && uc <= 'z') {
+        return static_cast<int>(uc - 'a');  // 把小写当作对应大写处理
+      }
+    }
+    return -1;  // 不支持的字符
+  }
+
+  // ---- 节点定义 ----
+  struct Node {
+    // next: 对每个字母的确定性转移 (构建后, 任何合法字符都不应为 -1)
+    std::array<idx_t, alphabet_size> next;
+    // fail: 失败指针 (AC automaton 的 fail 链)
+    idx_t fail;
+
+    Node() : next(), fail(0) { next.fill(-1); }
+  };
+
+  // ---- 成员: Trie / Automaton 存储 ----
+  std::vector<Node> nodes;  // 所有 Trie/自动机节点, nodes[0] 为根
+  std::vector<int>
+      pat_end_node;  // pat_end_node[pid] = 节点索引 (模式 pid 插入到的节点)
+  std::vector<int> topo;
+  bool built = false;  // 是否已调用 build()
+
+  // 构造器: 初始化并清空数据结构
+  AhoCorasickTopo() : nodes(1), pat_end_node(), built(false) {}
+
+  // 清空并恢复到初始状态 (仅保留根节点)
+  void clear() {
+    nodes.clear();
+    nodes.emplace_back();  // 根节点 index = 0
+    pat_end_node.clear();
+    built = false;
+  }
+
+  // 插入模式串, 返回模式 id (按插入顺序编号)
+  // 对每个字符使用 char_to_index() 映射; 若遇到不支持字符抛出异常
+  int insert_pattern(const std::string &pat) {
+    // 设置脏标记.
+    built = false;
+
+    int cur = 0;  // 从根开始
+    for (char c : pat) {
+      int x = char_to_index(c);
+      if (x < 0)
+        throw std::invalid_argument("Unsupported character in pattern");
+      // 若转移不存在则创建新节点
+      if (nodes[cur].next[x] == -1) {
+        nodes[cur].next[x] = static_cast<int>(nodes.size());
+        nodes.emplace_back();
+      }
+      cur = nodes[cur].next[x];
+    }
+    int pid = static_cast<int>(pat_end_node.size());
+
+    // 这里我们由于不进行输出合并,
+    // 所以传统的output_指针数组就免了.
+    // 我们这里只需要记录的几条模式串在哪个位置结束就好了.
+    pat_end_node.push_back(cur);
+    return pid;
+  }
+
+  // 构建 fail 指针并填充缺失转移, 使得在匹配阶段每个字符的转移为 O(1)
+  // 算法要点:
+  //  - 对根的直接孩子设置 fail=0, 并把 root 上缺失的字符指向 root 本身
+  //  - BFS 遍历 Trie, 设置每个孩子节点的 fail 指针为父的 fail
+  //  跳转对应字符的结果
+  //  - 同时把缺失的 next 填成 fail 节点对应的 next (即自动化 DFA 化)
+  inline void setFail() {
+    std::queue<int> q;
+    nodes[0].fail = 0;
+
+    // 1) 处理根节点的所有字母转移
+    //    - 对存在的子节点设置它们的 fail = 0 并入队 (BFS 起点)
+    //    - 对不存在的转移把 root.next[c] 指向 root (方便 DFA 转移)
+    for (size_t c = 0; c < alphabet_size; ++c) {
+      int v = nodes[0].next[c];
+      if (v != -1) {
+        nodes[v].fail = 0;
+        q.push(v);
+      } else {
+        nodes[0].next[c] = 0;  // 缺失转移回到 root, 保证任意字符都有转移
+      }
+    }
+
+    // 2) BFS: 为每个节点填 fail 并把缺失转移补好
+    //    - 对于 u 的每个存在的孩子 v:  v.fail = nodes[u.fail].next[c]
+    //    - 对于 u 的每个不存在的孩子:  u.next[c] = nodes[u.fail].next[c]
+    while (!q.empty()) {
+      int u = q.front();
+      q.pop();
+      for (size_t c = 0; c < alphabet_size; ++c) {
+        int v = nodes[u].next[c];
+        if (v != -1) {
+          // 孩子的 fail 指向: 从 u 的 fail 节点出发再按字符 c 的转移
+          nodes[v].fail = nodes[nodes[u].fail].next[c];
+          // 这里的巧妙之处, 在于给每个字符都设置了转移.
+          // 这样的话, 这里构造的时候, 只尝试一次匹配.
+          // 匹配失败, 就顺着next进行转移, 从头开始.
+          // 虽然不太能证明, 但是这里大概可以知道什么意思.
+          // 所以这里永远能转移.
+          q.push(v);
+        } else {
+          // 填充缺失转移, 使得在匹配阶段每一步都能 O(1) 转移
+          // 怎样都能转移正是我们做得好的地方.
+          nodes[u].next[c] = nodes[nodes[u].fail].next[c];
+        }
+      }
+    }
+  }
+
+  // 重要辅助函数: 拓扑排序.
+  inline void topoSort() {
+    size_t nnode = nodes.size();
+    // 1) 根据 fail 指针建 indegree (用于叶->根的 Kahn 算法)
+    //    边方向: u -> fail[u], 因此
+    //    indeg[fail[u]]++ (统计有多少子节点指向这个父节点)
+    std::vector<int> indeg(nnode, 0);
+    // 这里下标从1开始,
+    // 因为我们不需要在这次的排序中去考虑根节点的fail.
+    for (size_t u = 1; u < nnode; u++) {
+      int p = nodes[u].fail;
+      indeg[p]++;
+    }
+
+    // 2) 把所有 indegree==0 的节点放入队列 (这些是 fail-tree 的叶)
+    //    之后每次弹出节点 u,
+    //    把 u 的计数合并到 p = fail[u], 并把 p 的 indeg--.
+    std::queue<int> q;
+    for (size_t i = 0; i < nnode; i++) {
+      if (indeg[i] == 0) {
+        q.push(static_cast<int>(i));
+      }
+    }
+
+    // 3) topo 保存从叶到根的一个拓扑顺序 (便于后续归并)
+    //    这里因为整个Fail指针就是从叶子到根部的,
+    //    所以上游的节点应该在叶子的位置.
+    //    先加入的节点在拓扑排序的上游.
+    topo.clear();
+    topo.reserve(nnode);
+    while (!q.empty()) {
+      int u = q.front();
+      q.pop();
+      topo.push_back(u);
+      if (u == 0) {
+        continue;  // 根的 fail 指向自己, 不把根入度再处理成循环
+      }
+      // 就是说每个入度为0的节点,
+      // 它事实上只有一个fail (我们这里的边是指fail的转移).
+      // 然后这条fail边的目的地, 也就是fail的指向处,
+      // 我们将入度减少, 这也是拓扑排序的方法,
+      // 也是我数据结构考试唯一没有写出来的算法.
+      int p = nodes[u].fail;
+      indeg[p]--;
+      if (indeg[p] == 0) {
+        q.push(p);
+      }
+    }
+  }
+
+  // 从Trie树构造AC自动机.
+  // 应当见将这棵树构建成DFA自动机,
+  // 再建立它的拓扑序列, 进而实现拓扑优化的自动机.
+  void build() {
+    if (built) {
+      return;
+    }
+    setFail();
+    topoSort();
+    built = true;
+  }
+
+  // 使用 "拓扑 (叶->根) 传播" 统计每个模式在文本中出现的次数
+  // 思路:
+  //  把文本按 DFA 跑一遍, 统计每次自动机访问到的状态次数 occ[state]
+  //  按 topo (叶->根) 顺序, 把 occ[u] 累加到父节点 occ[fail[u]],
+  std::vector<long long> count_occurrences(const std::string &text) {
+    if (!built)
+      throw std::logic_error(
+          "build() must be called before count_occurrences()");
+
+    size_t nnode = nodes.size();
+    // occ[state] = automaton 在运行文本时到达该状态的次数 (尚未向上合并)
+    std::vector<long long> occ(nnode, 0);
+
+    // 运行自动机 (DFA 形式) , 对每步到达的 state++.
+    // 若遇到不支持的字符, 我们把状态重置到根 (与原实现保持一致) .
+    int state = 0;
+    for (char c : text) {
+      int idx = char_to_index(c);
+      if (idx < 0) {
+        // 非字母表字符: 按原实现语义, 重置为 root (也可以选择直接跳过)
+        // 这里想要表达的就是这相当于两个串了.
+        // 就是重置状态.
+        state = 0;
+        continue;
+      }
+      state = nodes[state].next[idx];
+      occ[state]++;
+    }
+
+    // 按 topo (叶->根) 顺序, 把 occ[u] 累加到父节点 occ[fail[u]],
+    // 这样父节点会包含子节点的出现次数 (即所有通过 fail 链能匹配到的模式)
+    // 这里的动作的一个朴素理解就是:
+    // 如果匹配到了 "abcabc", 那么它的根部, 也就是fail位置,
+    // 如果存在 "abc", 那就应该是 "abc" 对应的那个结尾节点.
+    // 那么很显然, "abc" 也匹配到了,
+    // 所以应该加上 "abcabc" 为前缀的所有的模式串的数量.
+    // 例如 "abcabc", "abcabcabc" 等等.
+    // 因此这里就避免了传统的那种存储output_数组的低效模式.
+    for (int u : topo) {
+      if (u == 0) {
+        continue;
+      }
+      int p = nodes[u].fail;
+      occ[p] += occ[u];
+    }
+
+    // 最后输出每个模式 pid 对应插入时的节点上的 occ 值
+    std::vector<long long> res(pat_end_node.size(), 0);
+    for (size_t pid = 0; pid < pat_end_node.size(); ++pid) {
+      // 第pid条模式串的出现次数等于这一条模式串的收尾节点
+      // 在匹配过程中出现的次数.
+      res[pid] = occ[pat_end_node[pid]];
+    }
+    return res;
+  }
+};
