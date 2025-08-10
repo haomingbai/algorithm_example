@@ -2,6 +2,9 @@
 \usepackage[dvipsnames]{xcolor}  % 扩展颜色支持
 \usepackage{listings}  % 代码高亮宏包
 \usepackage[hidelinks]{hyperref}
+\usepackage{graphicx}
+\usepackage{caption}   % 控制标题格式（可选）
+\usepackage{float}     % 提供 [H] 固定位置选项（可选）
 
 \usepackage[
     a4paper,       % 保持纸张类型不变
@@ -81,7 +84,7 @@
   \vspace*{2cm}
 
   % 封面主图占位符, 可替换为实际图片文件
-  % \includegraphics[width=0.5\textwidth]{cover_image1_placeholder}\\[1.5cm]
+  % \includegraphics[width=0.5\textwidth]{./blacksimithing.png}\\[1.5cm]
 
   % 书名与副标题, 中间使用 en-dash
   {\Huge\bfseries 基础算法示例 -- C++实现\par}
@@ -91,13 +94,13 @@
   \vfill
 
   % 两个小图占位符
-  % \begin{figure}[h]
-  %   \centering
-  %   \includegraphics[width=0.2\textwidth]{cover_image2_placeholder}
-  %   \hspace{1cm}
-  %   \includegraphics[width=0.2\textwidth]{cover_image3_placeholder}
-  % \end{figure}
-  % \vfill
+  \begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{./blacksimithing.png}
+    % \hspace{1cm}
+    % \includegraphics[width=0.2\textwidth]{cover_image3_placeholder}
+  \end{figure}
+  \vfill
 
   % 出版日期
   {\large \today\par}
@@ -264,7 +267,6 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 
 \section{字典树}
 
-
 字典树 (Trie) 作为高效处理字符串集合的树形数据结构, 在搜索引擎自动补全、拼写检查及路由协议中具有不可替代性. 其核心优势在于：
 \begin{itemize}
     \item \textbf{前缀共享}：具有公共前缀的字符串共享存储路径
@@ -275,5 +277,12 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 本节实现基于数组的双版本Trie模板, 部分支持字符串的删除.
 
 \lstinputlisting[language=C++, caption=trie.cpp, style=MyCStyle]{./str/trie.cpp}
+
+\section{AC自动机}
+
+AC自动机 (Aho-Corasick automaton) 是一种高效的多模式匹配算法, 用于在文本中同时查找多个关键词的出现位置. 其核心结构基于\textbf{Trie树}, 并通过添加\textbf{失败指针} (failure links) 实现快速状态转移.
+当匹配失败时, 算法沿失败指针回溯, 避免重复比较, 保证$O(n+m+z)$的时间复杂度 ($n$为文本长度, $m$为模式串总长, $z$为匹配次数). 该算法广泛应用于敏感词过滤, 生物序列分析等领域.
+
+\lstinputlisting[language=C++, caption=aho\_corasick.cpp, style=MyCStyle]{./str/aho_corasick.cpp}
 
 \end{document}

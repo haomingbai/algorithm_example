@@ -346,10 +346,11 @@ struct Edge {
 };
 
 template <typename T>
-std::vector<Edge<T>> Kruskal(std::vector<Edge<T>> edges) {
+std::vector<Edge<T>> Kruskal(std::vector<Edge<T>> edges,
+                             std::size_t max_node_idx) {
   std::sort(edges.begin(), edges.end(),
             [](const auto &a, const auto &b) { return a.weight < b.weight; });
-  DSU visited(edges.size());
+  DSU visited(max_node_idx + 1);
 
   std::vector<Edge<T>> res;
   for (auto &it : edges) {

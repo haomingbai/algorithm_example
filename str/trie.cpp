@@ -14,16 +14,17 @@
 #include <cassert>
 #include <cstddef>
 #include <numeric>
-#include <string_view>
 #include <vector>
 
+#include "../concepts.cpp"
+
+template <typename T, T start_, size_t size_>
 struct WeightedTrie {
-  static const char start_ = 'a';
   struct TrieNode {
     // next数组代表这条边上下一个节点的下标.
     // weight数组代表边上的权重,
     // 也就是通过这条边的字符串的个数.
-    std::array<size_t, 26> next_, weight_;
+    std::array<size_t, size_> next_, weight_;
     // 在这个位置结尾的字符串的数量.
     size_t end_cnt_;
 
@@ -45,7 +46,8 @@ struct WeightedTrie {
 
   void reserve(size_t n) { nodes_.reserve(n); }
 
-  void add(const std::string_view str) {
+  template <RandomStdContainer<T> Container>
+  void add(const Container &&str) {
     // 树根在0的位置.
     size_t curr_node_idx = 0;
     for (auto &it : str) {
@@ -67,7 +69,8 @@ struct WeightedTrie {
     nodes_[curr_node_idx].end_cnt_++;
   }
 
-  size_t count(const std::string_view str) {
+  template <RandomStdContainer<T> Container>
+  size_t count(const Container &&str) {
     // 树根在0的位置.
     size_t curr_node_idx = 0;
     for (auto &it : str) {
@@ -87,7 +90,8 @@ struct WeightedTrie {
 
   // 找到前缀满足待匹配字符的个数
   // 如在 "abc", "abcd" 中查找 "ab" 就应该找到2
-  size_t countPrefix(const std::string_view prefix) {
+  template <RandomStdContainer<T> Container>
+  size_t countPrefix(const Container &&prefix) {
     // 所有字符串都可以认为以空字符作为前缀.
     if (prefix.empty()) {
       return nodes_[0].end_cnt_ + std::accumulate(nodes_[0].weight_.begin(),
@@ -113,7 +117,8 @@ struct WeightedTrie {
   }
 
   // 很危险的函数, 不会有任何检查.
-  void removeUnchecked(const std::string_view str, size_t num = 1) {
+  template <RandomStdContainer<T> Container>
+  void removeUnchecked(const Container &&str, size_t num = 1) {
     // 树根在0的位置.
     size_t curr_node_idx = 0;
     for (auto &it : str) {
@@ -127,7 +132,8 @@ struct WeightedTrie {
     nodes_[curr_node_idx].end_cnt_ -= num;
   }
 
-  bool remove(const std::string_view str, size_t num = 1) {
+  template <RandomStdContainer<T> Container>
+  bool remove(const Container &&str, size_t num = 1) {
     // 先检查待删除字符串是否存在.
     if (count(str) >= num) {
       removeUnchecked(str, num);
