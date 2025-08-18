@@ -10,6 +10,9 @@
  * @details
  */
 
+#ifndef CONCEPTS_CPP
+#define CONCEPTS_CPP
+
 #include <concepts>
 #include <cstddef>
 #include <iterator>
@@ -103,3 +106,5 @@ concept RandomResizableContainer =
     RandomStdContainer<Container, E> && requires(Container arr, size_t x) {
       { arr.resize(x) };
     };
+
+#endif

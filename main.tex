@@ -80,30 +80,30 @@
 }
 \begin{document}
 \begin{titlepage}
-  \centering
-  \vspace*{2cm}
+	\centering
+	\vspace*{2cm}
 
-  % 封面主图占位符, 可替换为实际图片文件
-  % \includegraphics[width=0.5\textwidth]{./blacksimithing.png}\\[1.5cm]
+	% 封面主图占位符, 可替换为实际图片文件
+	% \includegraphics[width=0.5\textwidth]{./blacksimithing.png}\\[1.5cm]
 
-  % 书名与副标题, 中间使用 en-dash
-  {\Huge\bfseries 基础算法示例 -- C++实现\par}
-  \vspace{2cm}
-  % 作者、机构等信息（可修改）
-  {\Large 作者：Haoming Bai\par}
-  \vfill
+	% 书名与副标题, 中间使用 en-dash
+	{\Huge\bfseries 基础算法示例 -- C++实现\par}
+	\vspace{2cm}
+	% 作者、机构等信息（可修改）
+	{\Large 作者：Haoming Bai\par}
+	\vfill
 
-  % 两个小图占位符
-  \begin{figure}[h]
-    \centering
-    \includegraphics[width=0.6\textwidth]{./blacksimithing.png}
-    % \hspace{1cm}
-    % \includegraphics[width=0.2\textwidth]{cover_image3_placeholder}
-  \end{figure}
-  \vfill
+	% 两个小图占位符
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.6\textwidth]{./blacksimithing.png}
+		% \hspace{1cm}
+		% \includegraphics[width=0.2\textwidth]{cover_image3_placeholder}
+	\end{figure}
+	\vfill
 
-  % 出版日期
-  {\large \today\par}
+	% 出版日期
+	{\large \today\par}
 \end{titlepage}
 
 % 目录页
@@ -141,30 +141,30 @@ Concept (概念) 是本 C++ 模板的一项核心概念. "概念"引进于 C++20
 
 \subsection*{朴素线段树}
 
-朴素线段树基于分治思想构建二叉树: 根节点覆盖整个区间, 每个非叶节点递归二分其区间 (左子树 $[l, mid]$, 右子树 $[mid+1, r]$) , 叶节点对应单元素区间. 节点存储区间聚合信息 (如和/最值) , 更新时自底向上回溯修正受影响的节点值, 查询时合并目标区间的分解子区间结果. 其优势在于: 
+朴素线段树基于分治思想构建二叉树: 根节点覆盖整个区间, 每个非叶节点递归二分其区间 (左子树 $[l, mid]$, 右子树 $[mid+1, r]$) , 叶节点对应单元素区间. 节点存储区间聚合信息 (如和/最值) , 更新时自底向上回溯修正受影响的节点值, 查询时合并目标区间的分解子区间结果. 其优势在于:
 \begin{itemize}
 	\item \textbf{高效查询/更新}: 单点更新与区间查询时间复杂度均为 $O(\log n)$
 	\item \textbf{结构清晰}: 标准二叉树实现, 逻辑简单易理解
 \end{itemize}
-主要缺陷包括: 
+主要缺陷包括:
 \begin{itemize}
 	\item \textbf{区间更新效率低}: 直接更新每个元素需 $O(n \log n)$ 时间
 	\item \textbf{空间冗余}: 需 $4N$ 数组存储树结构, 空间复杂度 $O(n)$
 \end{itemize}
 
-尽管在正式文件中通常避免附着测试代码, 但为直观展示线段树通过运算符重载实现字符串加法、乘法及最值等聚合功能的灵活性, 此处特别提供了由AI编写的测试类作为补充示例. 
+尽管在正式文件中通常避免附着测试代码, 但为直观展示线段树通过运算符重载实现字符串加法、乘法及最值等聚合功能的灵活性, 此处特别提供了由AI编写的测试类作为补充示例.
 
 \lstinputlisting[language=C++, caption=segment\_tree/simple\_segtree.cpp, style=MyCStyle]{./segment_tree/simple_segtree.cpp}
 
 \section*{可持久化线段树}
 
-与之前介绍的普通线段树不同, 可持久化线段树 (persistent segment tree) 并非在原地修改节点, 而是通过“路径复制”创建一个新的版本, 旧版本仍可保存历史记录. 这意味着每次更新操作仅复制涉及的那条从根到叶的路径节点, 其他未改动的节点被共享使用, 因此可以高效维护多个历史状态, 而普通线段树更新会破坏原结构, 不支持版本回溯. 
+与之前介绍的普通线段树不同, 可持久化线段树 (persistent segment tree) 并非在原地修改节点, 而是通过“路径复制”创建一个新的版本, 旧版本仍可保存历史记录. 这意味着每次更新操作仅复制涉及的那条从根到叶的路径节点, 其他未改动的节点被共享使用, 因此可以高效维护多个历史状态, 而普通线段树更新会破坏原结构, 不支持版本回溯.
 
-可持久化线段树常被应用于 "区间第 $K$ 小" 问题：先对原数组进行离散化, 并为每个前缀 $A[1\dots i]$ 构建一个版本的值域线段树, 每个节点保存该值段在当前前缀下出现的次数. 查询$[l,r]$区间第 $K$ 小, 可视作 $CT[r]–CT[l–1]$ (两版本的减法) 后, 从根节点下行, 查找 $K$ 所在子区间, 从而在 $O(log(n))$ 内得出答案. 
+可持久化线段树常被应用于 "区间第 $K$ 小" 问题：先对原数组进行离散化, 并为每个前缀 $A[1\dots i]$ 构建一个版本的值域线段树, 每个节点保存该值段在当前前缀下出现的次数. 查询$[l,r]$区间第 $K$ 小, 可视作 $CT[r]–CT[l–1]$ (两版本的减法) 后, 从根节点下行, 查找 $K$ 所在子区间, 从而在 $O(log(n))$ 内得出答案.
 
-至于“主席树” (Chair/Chairman Tree) 这一称呼, 据说其名字源于一位昵称带 "主席" 二字的选手推广此结构, 故后人暂借此称；也有人说是因为其推广者拼音缩写与中国某前国家主席相同, 因此得名. 无论来源如何, 这个名称在中文竞赛圈内被广泛接受, 几乎成了可持久化值域线段树的代名词. 
+至于“主席树” (Chair/Chairman Tree) 这一称呼, 据说其名字源于一位昵称带 "主席" 二字的选手推广此结构, 故后人暂借此称；也有人说是因为其推广者拼音缩写与中国某前国家主席相同, 因此得名. 无论来源如何, 这个名称在中文竞赛圈内被广泛接受, 几乎成了可持久化值域线段树的代名词.
 
-第 $K$ 小数的查询之所以能够高效实现, 关键在于版本树间共享大量节点, 仅针对一个插入或查询路径创建 $O(log n)$ 个新节点, 版本之间的差异小, 既保持了线段树查询的效率, 也支持历史版本的任意访问, 是处理静态区间 $K_{th}$ 问题的经典方案. 
+第 $K$ 小数的查询之所以能够高效实现, 关键在于版本树间共享大量节点, 仅针对一个插入或查询路径创建 $O(log n)$ 个新节点, 版本之间的差异小, 既保持了线段树查询的效率, 也支持历史版本的任意访问, 是处理静态区间 $K_{th}$ 问题的经典方案.
 
 \lstinputlisting[language=C++, caption=segment\_tree/persistent\_segtree.cpp, style=MyCStyle]{./segment_tree/persistent_segtree.cpp}
 
@@ -211,8 +211,8 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 \section{单调队列}
 单调队列是一种基于队列的数据结构, 主要的作用是求解固定滑动窗口的最大值/最小值问题. 这种数据结构满足:
 \begin{itemize}
-  \item 队列内满足单调性
-  \item 插入新元素时通过从队尾弹出元素保持单调性
+	\item 队列内满足单调性
+	\item 插入新元素时通过从队尾弹出元素保持单调性
 \end{itemize}
 
 本实现还附带了一个滑动窗口最大值的简单实现 (队列单调递减).
@@ -241,27 +241,27 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 
 \chapter{字符串}
 
-在计算机系统中, 字符串作为信息的基本载体, 承载着从数据存储到逻辑控制的核心功能. 尤其在类Unix生态中, 诸如\texttt{grep}的文本搜索、\texttt{sed}的流编辑及\texttt{awk}的模式处理等工具, 均构建于高效字符串操作之上, 印证了Knuth「字符串处理是程序设计技术的试金石」的论断. 
+在计算机系统中, 字符串作为信息的基本载体, 承载着从数据存储到逻辑控制的核心功能. 尤其在类Unix生态中, 诸如\texttt{grep}的文本搜索、\texttt{sed}的流编辑及\texttt{awk}的模式处理等工具, 均构建于高效字符串操作之上, 印证了Knuth「字符串处理是程序设计技术的试金石」的论断.
 
 本章将实现字符串处理中的部分基础算法模板, 涵盖：
 \begin{itemize}
-    \item 字符串匹配（单模式/多模式）
-    \item 字典树与自动机
+	\item 字符串匹配（单模式/多模式）
+	\item 字典树与自动机
 \end{itemize}
 
-后续代码模板均以工业级效率为标准设计, 可直接应用于竞赛及工程场景. 
+后续代码模板均以工业级效率为标准设计, 可直接应用于竞赛及工程场景.
 
 \section{模式匹配}
 
-文本模式匹配是信息检索与文本处理的基石, 其效率直接影响搜索引擎响应速度、基因序列分析等关键场景的性能. 以Unix工具链为例, 当\texttt{grep}在GB级日志中检索模式时, 朴素匹配$O(nm)$的时间复杂度将导致灾难性延迟. 
+文本模式匹配是信息检索与文本处理的基石, 其效率直接影响搜索引擎响应速度、基因序列分析等关键场景的性能. 以Unix工具链为例, 当\texttt{grep}在GB级日志中检索模式时, 朴素匹配$O(nm)$的时间复杂度将导致灾难性延迟.
 
 本节实现Knuth-Morris-Pratt(KMP)算法模板, 其核心在于：
 \begin{itemize}
-    \item 通过\textbf{失配函数}预处理模式串($O(m)$)
-    \item 实现$O(n)$时间复杂度匹配
-    \item 避免回溯的\textbf{状态机跳转}机制
+	\item 通过\textbf{失配函数}预处理模式串($O(m)$)
+	\item 实现$O(n)$时间复杂度匹配
+	\item 避免回溯的\textbf{状态机跳转}机制
 \end{itemize}
-代码设计支持动态模式更新与流式数据匹配, 可直接集成至文本处理系统. 
+代码设计支持动态模式更新与流式数据匹配, 可直接集成至文本处理系统.
 
 \lstinputlisting[language=C++, caption=kmp.cpp, style=MyCStyle]{./str/kmp.cpp}
 
@@ -269,9 +269,9 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 
 字典树 (Trie) 作为高效处理字符串集合的树形数据结构, 在搜索引擎自动补全、拼写检查及路由协议中具有不可替代性. 其核心优势在于：
 \begin{itemize}
-    \item \textbf{前缀共享}：具有公共前缀的字符串共享存储路径
-    \item \textbf{检索加速}：$O(L)$时间完成键查询（$L$为键长）
-    \item \textbf{字典序遍历}：天然支持按字典序访问所有键
+	\item \textbf{前缀共享}：具有公共前缀的字符串共享存储路径
+	\item \textbf{检索加速}：$O(L)$时间完成键查询（$L$为键长）
+	\item \textbf{字典序遍历}：天然支持按字典序访问所有键
 \end{itemize}
 
 本节实现基于数组的双版本Trie模板, 部分支持字符串的删除.
@@ -284,5 +284,19 @@ AC自动机 (Aho-Corasick automaton) 是一种高效的多模式匹配算法, �
 当匹配失败时, 算法沿失败指针回溯, 避免重复比较, 保证$O(n+m+z)$的时间复杂度 ($n$为文本长度, $m$为模式串总长, $z$为匹配次数). 该算法广泛应用于敏感词过滤, 生物序列分析等领域.
 
 \lstinputlisting[language=C++, caption=aho\_corasick.cpp, style=MyCStyle]{./str/aho_corasick.cpp}
+
+\section{后缀数组}
+
+后缀数组(\textit{Suffix Array, SA})是一种存储字符串所有后缀按字典序排列索引的数据结构. 给定长度为$n$的字符串$S$, 其对应的后缀数组$SA[i]$表示字典序第$i$小的后缀起始下标. 该结构在生物信息学中用于DNA序列快速比对 (如BLAST工具), 在数据压缩中支撑Burrows-Wheeler变换 (BZIP2核心), 并在全文搜索引擎中实现高效的子串匹配 (如Lucene库).
+
+SA-IS算法是一种线性时间构建后缀数组的诱导排序算法. 其核心思想是:
+\begin{enumerate}
+  \item \textbf{分类}: 将字符分为\textbf{L型} (字典序大于后继) 和\textbf{S型} (小于或等于后继), 标记特殊\textbf{SMS型}子串.
+	\item \textbf{递归}: 提取SMS型子串并递归生成子串后缀数组.
+	\item \textbf{诱导}: 通过子串SA诱导排序L型后缀,再进一步诱导排序S型后缀.
+\end{enumerate}
+该算法时间复杂度为$O(n)$, 空间效率优于后缀树, 适用于大规模文本处理 (如基因组序列分析).
+
+\lstinputlisting[language=C++, caption=suffix\_array.cpp, style=MyCStyle]{./str/suffix_array.cpp}
 
 \end{document}
