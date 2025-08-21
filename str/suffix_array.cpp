@@ -12,7 +12,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <iterator>
 #include <numeric>
 #include <vector>
@@ -37,8 +36,7 @@ struct _Bucket {
 // 这里字符i的桶未满的断言应该是:
 // buckets[i].left <= buckets[i].right;
 inline void _InducedSort(const std::vector<long> &str,
-                         const std::vector<unsigned char> &type,
-                         std::vector<long> &SA,
+                         const std::vector<Type> &type, std::vector<long> &SA,
                          const std::vector<long> &prefix_sums,
                          std::vector<_Bucket> &buckets) {
   // 为了方便抄板子, 我这里先把一些变量提取出来.
@@ -104,7 +102,7 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
   // str[i] > str[i + 1], 记作L,
   // str[i] < str[i + 1], 记作S,
   // str[i] == str[i + 1], type[i] = type[i + 1].
-  std::vector<unsigned char> type(str.size(), S_TYPE);
+  std::vector<Type> type(str.size(), S_TYPE);
 
   // 这里因为建立桶的需求,
   // 所以需要统计每个字符在这里都出现了几次.
@@ -207,7 +205,8 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
     };
 
     // 这里的这个函数是用来比较两个LMS子串是否相等的.
-    const auto is_lms_eq = [&](const size_t idx1, const size_t idx2) -> bool {
+    const auto is_lms_eq = [&](const unsigned long idx1,
+                               const unsigned long idx2) -> bool {
       // 如果下标相等就意味着两个LMS相等
       if (idx1 == idx2) {
         return true;
@@ -281,7 +280,7 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
 
   // 命名唯一, 无需递归,
   // 直接返回.
-  if (static_cast<size_t>(name_cnt) == lms_incidies.size()) {
+  if (static_cast<unsigned long>(name_cnt) == lms_incidies.size()) {
     return SA;
   } else {
     // 生成一个和长度和LMS个数相同的lms_str.
@@ -293,7 +292,7 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
     std::reverse(lms_incidies.begin(), lms_incidies.end());
     // 生成用于递归的LMS string.
     // LMS string中, 参与排序的是这些LMS子串的名字.
-    for (size_t i = 0; i < lms_incidies.size(); i++) {
+    for (unsigned long i = 0; i < lms_incidies.size(); i++) {
       auto curr_lms_idx = lms_incidies[i];
       lms_str[i] = names[curr_lms_idx];
     }
@@ -341,11 +340,11 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
 
 // 后缀数组计算.
 template <typename E, RandomStdContainer<E> Container>
-  requires std::is_convertible_v<E, size_t>
-std::vector<size_t> suffix_array(const Container &str) {
+  requires std::is_convertible_v<E, unsigned long>
+std::vector<unsigned long> BuildSuffixArray(const Container &str) {
   std::vector<long> processed(str.size() + 1);
   long max_val = 0;
-  for (size_t i = 0; i < str.size(); i++) {
+  for (unsigned long i = 0; i < str.size(); i++) {
     // 强制为 unsigned 避免负值；+1 确保哨兵 (0) 比任何字符都小且唯一
     processed[i] = static_cast<unsigned char>(str[i]) + 1;
     if (processed[i] > max_val) max_val = processed[i];
@@ -354,16 +353,16 @@ std::vector<size_t> suffix_array(const Container &str) {
 
   auto res = _SAIS(processed, max_val);
   // res[0] 对应哨兵的位置 (通常是 processed.size() - 1)
-  std::vector<size_t> processed_res(std::next(res.begin()), res.end());
+  std::vector<unsigned long> processed_res(std::next(res.begin()), res.end());
   return processed_res;
 }
 
 template <typename E, RandomStdContainer<E> Container>
-  requires std::is_convertible_v<E, size_t>
-std::vector<size_t> suffix_array(Container &&str) {
+  requires std::is_convertible_v<E, unsigned long>
+std::vector<unsigned long> suffix_array(Container &&str) {
   std::vector<long> processed(str.size() + 1);
   long max_val = 0;
-  for (size_t i = 0; i < str.size(); i++) {
+  for (unsigned long i = 0; i < str.size(); i++) {
     // 强制为 unsigned 避免负值；+1 确保哨兵 (0) 比任何字符都小且唯一
     processed[i] = static_cast<unsigned char>(str[i]) + 1;
     if (processed[i] > max_val) max_val = processed[i];
@@ -372,6 +371,6 @@ std::vector<size_t> suffix_array(Container &&str) {
 
   auto res = _SAIS(processed, max_val);
   // res[0] 对应哨兵的位置 (通常是 processed.size() - 1)
-  std::vector<size_t> processed_res(std::next(res.begin()), res.end());
+  std::vector<unsigned long> processed_res(std::next(res.begin()), res.end());
   return processed_res;
 }
