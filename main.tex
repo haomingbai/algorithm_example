@@ -78,6 +78,7 @@
         co\_yield, char8\_t, char16\_t, char32\_t
     }
 }
+
 \begin{document}
 \begin{titlepage}
 	\centering
@@ -214,6 +215,12 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 单调栈和单调队列是同样的原理, 只是和单调队列不同, 它从栈顶弹出元素.
 
 \lstinputlisting[language=C++, caption=mono\_stack.cpp, style=MyCStyle]{./mono_stack.cpp}
+
+\section{二叉堆}
+
+二叉堆是一种基于完全二叉树的数据结构, 它满足堆序性质: 每个节点的值都大于等于或小于等于其子节点的值. 前者称为最大堆 (根节点最大), 后者称为最小堆 (根节点最小). 由于其完全二叉树的特性, 二叉堆通常使用数组实现, 可以高效地支持插入, 删除最大值/最小值等操作, 常用于实现优先队列或堆排序算法. 常见操作的时间复杂度为 $O(log n)$.
+
+\lstinputlisting[language=C++, caption=heap.cpp, style=MyCStyle]{./heap.cpp}
 
 \chapter{散列方法}
 
