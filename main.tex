@@ -236,6 +236,12 @@ B+树是一种专为大规模数据存储优化的自平衡多路搜索树. 它�
 
 \lstinputlisting[language=C++, caption=geometry.cpp, style=MyCStyle]{./geometry.cpp}
 
+\section{最近点对}
+
+在平面中, 我们经常需要找到两个最近的点. 相比最传统的暴力方法, 即找到所有点对, 并计算出任意两者之间的距离, 一些方法可以大幅度简化计算, 进而有效降低我们的程序的时间复杂度. 本题中, 我们采用了一种分治与合并的方法, 从概率上, 让算法的复杂度降低到 $O(nlog(n))$.
+
+\lstinputlisting[language=C++, caption=nearest\_point\_pair.cpp, style=MyCStyle]{./nearest_point_pair.cpp}
+
 \chapter{字符串}
 
 在计算机系统中, 字符串作为信息的基本载体, 承载着从数据存储到逻辑控制的核心功能. 尤其在类Unix生态中, 诸如\texttt{grep}的文本搜索、\texttt{sed}的流编辑及\texttt{awk}的模式处理等工具, 均构建于高效字符串操作之上, 印证了Knuth「字符串处理是程序设计技术的试金石」的论断.
