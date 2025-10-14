@@ -15,11 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <iomanip>
-#include <ios>
-#include <iostream>
 #include <span>
-#include <vector>
 
 struct Point2D {
   double x, y;
@@ -81,27 +77,4 @@ double FindNearestDistance(std::span<Point2D> point_list) {
   }
 
   return dist_to_cmp;
-}
-
-int main() {
-  size_t n;
-  std::cin >> n;
-  std::vector<Point2D> pts(n);
-
-  for (auto &it : pts) {
-    std::cin >> it.x >> it.y;
-  }
-
-  std::ranges::sort(pts, [](const Point2D &a, const Point2D &b) {
-    if (a.x < b.x) {
-      return true;
-    } else if (a.x == b.x) {
-      return a.y < b.y;
-    }
-    return false;
-  });
-
-  auto distance = FindNearestDistance(std::span<Point2D>(pts));
-
-  std::cout << std::fixed << std::setprecision(4) << distance << '\n';
 }

@@ -16,56 +16,119 @@
 #include <utility>
 #include <vector>
 
-template <typename DT, typename Compare = std::less<DT>>
-struct Heap {
-  std::vector<DT> data_;
-  Compare comp;
+template <typename T, typename C = std::less<T>>
+class Heap {
+ public:
+  template <typename... Args>
+  bool Push(Args&&... val) {
+    auto curr_idx = container_.size();
+    container_.emplace_back(std::forward<Args>(val)...);
+    T tmp = std::move(container_.back());
 
-  Heap() : data_(1), comp() {}
+    // Modify the heap.
+    {
+      auto child = curr_idx;
+      auto parent = child / 2;
 
-  void push(const DT &elem) {
-    data_.push_back(elem);
-
-    for (auto curr_idx = data_.size() - 1; curr_idx > 1;) {
-      auto parent_idx = curr_idx / 2;
-
-      if (comp(data_[parent_idx], data_[curr_idx])) {
-        std::swap(data_[parent_idx], data_[curr_idx]);
-        curr_idx = parent_idx;
-      } else {
-        break;
+      while (parent) {
+        if (comp_(container_[parent], tmp)) {
+          container_[child] = std::move(container_[parent]);
+          child = parent;
+          parent /= 2;
+        } else {
+          break;
+        }
       }
+
+      container_[child] = std::move(tmp);
     }
+
+    return true;
   }
 
-  void pop() {
-    std::swap(data_[1], data_.back());
-    data_.pop_back();
+  T Pop() noexcept {
+    constexpr std::size_t root = 1;
+    auto last_idx = container_.size() - 1;
 
-    for (size_t curr_idx = 1; curr_idx < data_.size();) {
-      auto left_idx = curr_idx * 2;
-      auto right_idx = curr_idx * 2 + 1;
-      size_t child_idx = 0;
+    auto result = std::move(container_[root]);
+    auto tmp = std::move(container_[last_idx]);
+    container_.pop_back();
 
-      if (left_idx < data_.size()) {
-        child_idx = left_idx;
-      }
-      if (right_idx < data_.size() && comp(data_[left_idx], data_[right_idx])) {
-        child_idx = right_idx;
+    {
+      last_idx--;
+      if (last_idx < 1) {
+        return result;
       }
 
-      if (child_idx && comp(data_[curr_idx], data_[child_idx])) {
-        std::swap(data_[curr_idx], data_[child_idx]);
-        curr_idx = child_idx;
-      } else {
-        break;
+      auto curr = root;
+
+      while (curr * 2 <= last_idx) {
+        auto left = curr * 2;
+        auto right = left + 1;
+
+        [[unlikely]] if (right > last_idx) {
+          if (comp_(tmp, container_[left])) {
+            container_[curr] = std::move(container_[left]);
+            curr = left;
+          } else {
+            break;
+          }
+        } else {
+          assert(right <= last_idx);
+          auto to_comp =
+              comp_(container_[left], container_[right]) ? right : left;
+
+          if (comp_(tmp, container_[to_comp])) {
+            container_[curr] = std::move(container_[to_comp]);
+            curr = to_comp;
+          } else {
+            break;
+          }
+        }
       }
+
+      container_[curr] = std::move(tmp);
     }
+
+    return result;
   }
 
-  const DT &top() { return data_[1]; }
+  const T& Top() const noexcept {
+    assert(!IsEmpty());
+    return container_[1];
+  }
 
-  bool empty() { return data_.size() <= 1; }
+  bool ShrinkToFit() {
+    container_.shrink_to_fit();
+    return true;
+  }
 
-  size_t size() { return data_.size() - 1; }
+  std::size_t GetSize() const noexcept {
+    assert(container_.size());
+    return container_.size() - 1;
+  }
+
+  std::size_t GetCapacity() const noexcept {
+    assert(container_.capacity());
+    return container_.capacity() - 1;
+  }
+
+  bool IsEmpty() const noexcept {
+    assert(container_.size());
+    return (container_.size() <= 1);
+  }
+
+  bool Reserve(std::size_t n) {
+    container_.reserve(n + 1);
+    return true;
+  }
+
+  Heap() : container_(1) {}
+
+  template <typename... Comp>
+  Heap() : container_(1) {}
+
+ private:
+  std::vector<T> container_;
+  static C comp_;
 };
