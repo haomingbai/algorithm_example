@@ -42,7 +42,6 @@ inline void _InducedSort(const std::vector<long> &str,
   // 为了方便抄板子, 我这里先把一些变量提取出来.
   // 开销应该不大, 因为估计编译器一下就给消掉了.
   const long n = str.size(), max_val = buckets.size() - 1;
-
   // 从左向右扫描SA数组,
   // 这里的目标是从LMS进行L诱导.
   // 然后把L放到每个桶的头部.
@@ -59,7 +58,6 @@ inline void _InducedSort(const std::vector<long> &str,
       prev_bucket.left++;
     }
   }
-
   // 将桶的底部重置, 这里的意思是删除那些LMS.
   // 删除掉LMS之后, 再根据之前放入的L的字符,
   // 诱导出所有的S的字符的位置.
@@ -71,7 +69,6 @@ inline void _InducedSort(const std::vector<long> &str,
     // 也就意味着这个桶满了.
     buckets[i].right = prefix_sums[i] - 1;
   }
-
   // 从右往左扫描.
   // 这次扫描要把S类型的字符放进桶.
   for (long i = n - 1; i >= 0; i--) {
@@ -88,7 +85,6 @@ inline void _InducedSort(const std::vector<long> &str,
     }
   }
 }
-
 // str必须是已经被处理好的, 确认了最后的数字是全局唯一最小的哨兵的串.
 // max_val可以给的稍微大一点也没关系.
 inline std::vector<long> _SAIS(const std::vector<long> &str,
@@ -103,21 +99,17 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
   // str[i] < str[i + 1], 记作S,
   // str[i] == str[i + 1], type[i] = type[i + 1].
   std::vector<Type> type(str.size(), S_TYPE);
-
   // 这里因为建立桶的需求,
   // 所以需要统计每个字符在这里都出现了几次.
   // 因为我们两次诱导排序,
   // 使用的是同一个串, 所以我们就不再排序的过程中扫描这个了哈.
   std::vector<long> cnt_occurance(max_val + 1, 0);
-
   // 尾部字符单独统计,
   // 因为下面扫描全字符串是从倒数第二个字符开始的.
   cnt_occurance[str.back()]++;
-
   // 收集所有LMS的下标.
   std::vector<long> lms_incidies;
   lms_incidies.reserve(str.size() / 2);
-
   // 逆序遍历字符串, 获取类型.
   // 这里逆序遍历的原因是, 如果
   // str[i] == str[i + 1], 那么则有:
@@ -140,11 +132,9 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
     } else {
       assert(false);
     }
-
     // 记录出现次数.
     cnt_occurance[str[i]]++;
   }
-
   // 创建前缀和数组, 为建立桶和诱导排序做准备.
   std::vector<long> prefix_sums(max_val + 2);
   std::partial_sum(cnt_occurance.begin(), cnt_occurance.end(),
@@ -158,7 +148,6 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
     buckets[i].left = prefix_sums[i - 1];
     buckets[i].right = prefix_sums[i] - 1;
   }
-
   // 放入LMS.
   // 这里对于同一个字母, 入桶的顺序应该是倒序的.
   // 这个似乎和诱导排序的实现有关系.
@@ -169,19 +158,15 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
     auto curr_idx = *it;
     auto curr_char = str[curr_idx];
     auto &curr_bucket = buckets[curr_char];
-
     // 将对应的下标放入桶中.
     SA[curr_bucket.right] = curr_idx;
     curr_bucket.right--;
   }
-
   // 进行第一次诱导排序.
   _InducedSort(str, type, SA, prefix_sums, buckets);
-
   // 创建名字和下标的对应关系.
   // 这里用names数组表达对应位置的名字.
   std::vector<long> names(str.size(), -1);
-
   // 这两个变量分别记录了下发的名字的数量,
   // 和上一个被探测到的LMS的坐标.
   long name_cnt = 0;
@@ -203,7 +188,6 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
         return false;
       }
     };
-
     // 这里的这个函数是用来比较两个LMS子串是否相等的.
     const auto is_lms_eq = [&](const unsigned long idx1,
                                const unsigned long idx2) -> bool {
@@ -217,7 +201,6 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
       if (idx1 == str.size() - 1 || idx2 == str.size() - 1) {
         return false;
       }
-
       // 从偏移量为0开始比较
       long offset = 0;
       do {
@@ -229,18 +212,15 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
         if (type[idx1 + offset] != type[idx2 + offset]) {
           return false;
         }
-
         // 手动更新偏移量
         offset++;
         // 循环条件: 两个待比较位置都没有来到下一个LMS
       } while (!is_lms(idx1 + offset) && !is_lms(idx2 + offset));
-
       // 如果有一个没有到达下一个LMS但是另外一个到达,
       // 那么二者一定不相等.
       if (!is_lms(idx1 + offset) || !is_lms(idx2 + offset)) {
         return false;
       }
-
       // 否则还是比较这两个LMS对应的字符.
       if (str[idx1 + offset] != str[idx2 + offset]) {
         return false;
@@ -250,7 +230,6 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
       }
       return true;
     };
-
     // 这个时候, it是当前正在处理的的lms下标
     if (is_lms(it)) {
       // 如果上一个LMS存在,
@@ -271,13 +250,11 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
         // 那么肯定要分配一个新名字.
         name_cnt++;
       }
-
       // 将名字下发下去.
       names[it] = name_cnt - 1;
       last_lms_idx = it;
     }
   }
-
   // 命名唯一, 无需递归,
   // 直接返回.
   if (static_cast<unsigned long>(name_cnt) == lms_incidies.size()) {
@@ -296,10 +273,8 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
       auto curr_lms_idx = lms_incidies[i];
       lms_str[i] = names[curr_lms_idx];
     }
-
     // 最大的一个名字是最大的name_cnt - 1.
     lms_SA = _SAIS(lms_str, name_cnt - 1);
-
     // 生成一个新的桶并清空SA数组,
     // 进行第二次诱导排序.
     std::fill(SA.begin(), SA.end(), -1);
@@ -308,7 +283,6 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
       buckets[i].left = prefix_sums[i - 1];
       buckets[i].right = prefix_sums[i] - 1;
     }
-
     // 这里倒序遍历, 同时将遍历到的位置放在桶对应字母的右侧.
     // 因此可以保证lms_SA中靠右的下标会优先被处理后放入桶的右侧.
     // 因此对于同一个字母, lms_SA中靠右的在桶中也靠右.
@@ -321,19 +295,15 @@ inline std::vector<long> _SAIS(const std::vector<long> &str,
       // 存放的那个lms的名字对应的下标,
       // 就是lms_incidies[lms_SA[i]]中存放的那个下标.
       auto curr_lms_idx = lms_incidies[lms_SA[i]];
-
       // 同样地获取桶
       auto curr_char = str[curr_lms_idx];
       auto &curr_bucket = buckets[curr_char];
-
       // 将下标放在桶的右侧.
       SA[curr_bucket.right] = curr_lms_idx;
       curr_bucket.right--;
     }
-
     // 第二次诱导排序.
     _InducedSort(str, type, SA, prefix_sums, buckets);
-
     return SA;
   }
 }
@@ -350,7 +320,6 @@ std::vector<unsigned long> BuildSuffixArray(const Container &str) {
     if (processed[i] > max_val) max_val = processed[i];
   }
   processed.back() = 0;  // 哨兵，唯一且最小
-
   auto res = _SAIS(processed, max_val);
   // res[0] 对应哨兵的位置 (通常是 processed.size() - 1)
   std::vector<unsigned long> processed_res(std::next(res.begin()), res.end());
@@ -368,7 +337,6 @@ std::vector<unsigned long> suffix_array(Container &&str) {
     if (processed[i] > max_val) max_val = processed[i];
   }
   processed.back() = 0;  // 哨兵，唯一且最小
-
   auto res = _SAIS(processed, max_val);
   // res[0] 对应哨兵的位置 (通常是 processed.size() - 1)
   std::vector<unsigned long> processed_res(std::next(res.begin()), res.end());

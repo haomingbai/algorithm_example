@@ -246,7 +246,7 @@ AVL树是一种严格自平衡的二叉搜索树. 它通过在普通二叉搜索
 
 \lstinputlisting[language=C++, caption=geometry.cpp, style=MyCStyle]{./geometry.cpp}
 
-\section{最近点对}
+\section*{最近点对}
 
 在平面中, 我们经常需要找到两个最近的点. 相比最传统的暴力方法, 即找到所有点对, 并计算出任意两者之间的距离, 一些方法可以大幅度简化计算, 进而有效降低我们的程序的时间复杂度. 本题中, 我们采用了一种分治与合并的方法, 从概率上, 让算法的复杂度降低到 $O(nlog(n))$.
 
