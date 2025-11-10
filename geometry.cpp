@@ -16,6 +16,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdlib>
+#include <limits>
 #include <numbers>
 #include <random>
 #include <stdexcept>
@@ -118,24 +119,24 @@ struct Point2D {
   // 使用x和y坐标构造新点.
   template <typename ValT1, typename ValT2>
     requires(std::is_convertible_v<ValT1, T> && std::is_convertible_v<ValT2, T>)
-  Point2D(const ValT1 &x, const ValT2 &y) : x(x), y(y) {}
+  Point2D(const ValT1& x, const ValT2& y) : x(x), y(y) {}
 
   // 使用另外一个点构造新点.
   template <typename T2>
     requires(std::is_convertible_v<T2, T>)
-  Point2D(const Point2D<T2> &another) : x(another.x), y(another.y) {}
+  Point2D(const Point2D<T2>& another) : x(another.x), y(another.y) {}
 
   // 支持一下移动构造, 这里作为五方法的一部分, 可以学习一下.
   template <typename T2>
     requires(std::is_convertible_v<T2, T>)
-  Point2D(Point2D<T2> &&another) : x(another.x), y(another.y) {}
+  Point2D(Point2D<T2>&& another) : x(another.x), y(another.y) {}
 
   // 相等判定, 这里因为涉及类型的变换, 所以加法和减法等都在外部定义
   // 注意: 在C++20之前, ==和!=并不是一种运算, 需要手动重载,
   // 但是我们这里已经是C++20了, 所以就不需要了.
   // 我相信在GCC 15已经发布的当下, C++20会更加普及.
   template <typename U>
-  bool operator==(const Point2D<U> &p2) const
+  bool operator==(const Point2D<U>& p2) const
     requires std::is_floating_point_v<T> && std::is_floating_point_v<U> &&
              std::is_convertible_v<U, T>
   {
@@ -145,7 +146,7 @@ struct Point2D {
   // 这里是条件较弱的相等判定, 在模板的实例化中处在较低的有限级.
   // 可以作为模板和模板特化的学习用例.
   template <typename U>
-  bool operator==(const Point2D<U> &p2) const {
+  bool operator==(const Point2D<U>& p2) const {
     return (x == p2.x) && (y == p2.y);
   }
 
@@ -161,7 +162,7 @@ struct Point2D {
   // 这里作为成员函数, 语义同样明确, 但是避免和标准空间发生冲突.
   // 因为返回类型较为复杂, 所以使用了后置的类型声明, auto不进接口是美德.
   template <typename T2>
-  auto distanceWith(const Vector2D<T2> &p2)
+  auto distanceWith(const Vector2D<T2>& p2)
       -> decltype(std::sqrt(std::declval<T>() - std::declval<T2>())) const {
     auto xdiff = x - p2.x, ydiff = y - p2.y;
     return std::sqrt(xdiff * xdiff + ydiff * ydiff);
@@ -259,7 +260,7 @@ struct Point2D {
 
   // 向量夹角
   template <typename U>
-  auto angle(const Vector2D<U> &v) const -> std::conditional_t<
+  auto angle(const Vector2D<U>& v) const -> std::conditional_t<
       std::is_floating_point_v<decltype(std::declval<T>() * std::declval<U>())>,
       decltype(std::declval<T>() * std::declval<U>()), double> {
     using RT =
@@ -288,7 +289,7 @@ using Vector2D = Point2D<T>;
 // 向量加法实现, 要求数据类型满足可加性.
 template <typename T1, typename T2>
   requires(AddableWith<T1, T2>)
-auto operator+(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
+auto operator+(const Vector2D<T1>& p1, const Vector2D<T2>& p2)
     -> Vector2D<decltype(std::declval<T1>() + std::declval<T2>())> {
   using RT = decltype(std::declval<T1>() + std::declval<T2>());
   Vector2D<RT> res(p1.x + p2.x, p1.y + p2.y);
@@ -298,7 +299,7 @@ auto operator+(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 // 向量减法实现, 要求减法实现.
 template <typename T1, typename T2>
   requires(SubtractableWith<T1, T2>)
-auto operator-(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
+auto operator-(const Vector2D<T1>& p1, const Vector2D<T2>& p2)
     -> Vector2D<decltype(std::declval<T1>() - std::declval<T2>())> {
   using RT = decltype(std::declval<T1>() - std::declval<T2>());
   Vector2D<RT> res(p1.x - p2.x, p1.y - p2.y);
@@ -309,7 +310,7 @@ auto operator-(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 // 这里乘法的语义给了点乘, 因为给叉乘的话维度就上去了, 不满足可乘的性质了.
 template <typename T1, typename T2>
   requires(MultiplyableWith<T1, T2>)
-auto operator*(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
+auto operator*(const Vector2D<T1>& p1, const Vector2D<T2>& p2)
     -> decltype(std::declval<T1>() * std::declval<T2>()) {
   using RT = decltype(std::declval<T1>() * std::declval<T2>());
   RT res(p1.x * p2.x + p1.y * p2.y);
@@ -321,7 +322,7 @@ auto operator*(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
 // 加法和减法都有了, 累加也有了...
 template <typename T, typename U>
   requires MultiplyableWith<T, U>
-auto operator*(const Vector2D<T> &p, U k)
+auto operator*(const Vector2D<T>& p, U k)
     -> Vector2D<decltype(std::declval<T>() * std::declval<U>())> {
   using RT = Vector2D<decltype(std::declval<T>() * std::declval<U>())>;
   RT res(p.x * k, p.y * k);
@@ -331,7 +332,7 @@ auto operator*(const Vector2D<T> &p, U k)
 // 除法实现...
 template <typename T, typename U>
   requires(DividableWith<T, U>)
-auto operator/(const Vector2D<T> &p, U k)
+auto operator/(const Vector2D<T>& p, U k)
     -> Vector2D<decltype(std::declval<T>() / std::declval<U>())> {
   Vector2D<T> res(p.x / k, p.y / k);
   return res;
@@ -358,7 +359,7 @@ concept MultiplyThenSubtractable =
 // 因此, z坐标就可以方便地被计算.
 template <typename T1, typename T2>
   requires(MultiplyThenSubtractable<T1, T2>)
-auto crossProductValue(const Vector2D<T1> &p1, const Vector2D<T2> &p2)
+auto crossProductValue(const Vector2D<T1>& p1, const Vector2D<T2>& p2)
     -> decltype((std::declval<T1>() * std::declval<T2>()) -
                 (std::declval<T1>() * std::declval<T2>())) {
   return p1.x * p2.y - p1.y * p2.x;
@@ -371,7 +372,7 @@ template <typename T1, typename T2>
   requires(requires(Vector2D<T1> v1, Vector2D<T2> v2) {
     crossProductValue(v1, v2);
   })
-bool isParallel(const Vector2D<T1> &v1, const Vector2D<T2> &v2) {
+bool isParallel(const Vector2D<T1>& v1, const Vector2D<T2>& v2) {
   return sign(crossProductValue(v1, v2)) == 0;
 }
 
@@ -383,12 +384,12 @@ struct LineBase2D {
   // 使用两点构造.
   template <typename T1, typename T2>
     requires std::is_convertible_v<T1, T> && std::is_convertible_v<T2, T>
-  LineBase2D(const Point2D<T1> &p1, const Point2D<T2> &p2) : p1(p1), p2(p2) {}
+  LineBase2D(const Point2D<T1>& p1, const Point2D<T2>& p2) : p1(p1), p2(p2) {}
 
   // 使用另一条线构造.
   template <typename U>
     requires std::is_convertible_v<U, T>
-  LineBase2D(const LineBase2D<U> &line) : p1(line.p1), p2(line.p2) {}
+  LineBase2D(const LineBase2D<U>& line) : p1(line.p1), p2(line.p2) {}
 
   // 对于纯数据, 默认构造必须有, 否则继承的时候有你好果汁.
   LineBase2D() {};
@@ -397,7 +398,7 @@ struct LineBase2D {
   // 这里就是点到直线距离里面的判别式, 就是那个 delta / sqrt(a ^ 2 + b ^ 2)
   template <typename U>
   // 约束直接描述函数体内的核心操作
-    requires requires(const Point2D<T> &pt, const Point2D<U> &pu) {
+    requires requires(const Point2D<T>& pt, const Point2D<U>& pu) {
       // 检查 crossProductValue 是否有效，因为 delta 内部的 c 就是
       // crossProductValue
       { crossProductValue(pt, pt) };
@@ -406,7 +407,7 @@ struct LineBase2D {
         (pt.y - pt.y) * pu.x + (pt.x - pt.x) * pu.y + crossProductValue(pt, pt)
       };
     }
-  auto delta(const Point2D<U> &p) const
+  auto delta(const Point2D<U>& p) const
       -> decltype(std::declval<T>() * std::declval<U>()) {
     // 这里是获得直线的一般式的算法.
     // ref: https://blog.csdn.net/madbunny/article/details/43955883
@@ -445,7 +446,7 @@ struct LineBase2D {
 
   template <typename U>
     requires std::is_floating_point_v<T> && std::is_floating_point_v<U>
-  auto project(const Point2D<U> &p) const
+  auto project(const Point2D<U>& p) const
       -> Point2D<decltype(std::declval<T>() * std::declval<U>())> {
     using DT = decltype(std::declval<T>() * std::declval<U>());
 
@@ -460,7 +461,7 @@ struct LineBase2D {
 
 // 平行检测, 注意这里共线也是被检测出平行的.
 template <typename T1, typename T2>
-bool isParallel(const LineBase2D<T1> &l1, const LineBase2D<T2> &l2) {
+bool isParallel(const LineBase2D<T1>& l1, const LineBase2D<T2>& l2) {
   return isParallel(l1.p2 - l1.p1, l2.p2 - l2.p1);
 }
 
@@ -481,7 +482,7 @@ struct Line2D : public LineBase2D<T> {
   template <typename PointDataType, typename FloatType>
     requires(std::is_convertible_v<PointDataType, T> &&
              std::is_floating_point_v<FloatType>)
-  Line2D(const Point2D<PointDataType> &p, FloatType angle) {
+  Line2D(const Point2D<PointDataType>& p, FloatType angle) {
     p1 = p;
 
     // 确保角度的参数范围在0到pi之内.
@@ -510,7 +511,7 @@ struct Line2D : public LineBase2D<T> {
   // 在调试模式加一个assert得了.
   template <typename T1, typename T2>
     requires std::is_convertible_v<T1, T> && std::is_convertible_v<T2, T>
-  Line2D(const Point2D<T1> &p1, const Point2D<T2> &p2) : LineBase2D<T>(p1, p2) {
+  Line2D(const Point2D<T1>& p1, const Point2D<T2>& p2) : LineBase2D<T>(p1, p2) {
     assert(p1 != p2);
   }
 
@@ -552,14 +553,14 @@ struct Line2D : public LineBase2D<T> {
   // 现在的情况已经考虑到线段和直线的转换了...
   template <typename U>
     requires std::is_convertible_v<U, T>
-  Line2D(const LineBase2D<U> &line) : LineBase2D<T>(line) {}
+  Line2D(const LineBase2D<U>& line) : LineBase2D<T>(line) {}
 
   // 判断两直线相等, 这里要求类型能够判定相等.
   template <typename U>
     requires requires(T t, U u) {
       { t == u } -> std::convertible_to<bool>;
     }
-  bool operator==(const Line2D<U> &line) const {
+  bool operator==(const Line2D<U>& line) const {
     auto v1 = p2 - p1;
     auto v2 = line.p2 - line.p1;
 
@@ -585,7 +586,7 @@ struct Line2D : public LineBase2D<T> {
              Multiplyable<T> &&
              MultiplyableWith<decltype(std::declval<T>() * std::declval<T1>()),
                               decltype(std::declval<T>() * std::declval<T2>())>
-  bool cross(const Point2D<T1> &p1, const Point2D<T2> &p2) const {
+  bool cross(const Point2D<T1>& p1, const Point2D<T2>& p2) const {
     auto d1 = delta(p1), d2 = delta(p2);
 
     if (sign(d1 * d2) > 0) {
@@ -597,7 +598,7 @@ struct Line2D : public LineBase2D<T> {
 
   // 判断线段和直线是否相交.
   template <typename U>
-  bool cross(const LineSegment2D<U> &l) const;
+  bool cross(const LineSegment2D<U>& l) const;
 
   // 方向向量
   Vector2D<T> direction() const { return p2 - p1; }
@@ -609,7 +610,7 @@ struct Line2D : public LineBase2D<T> {
   // 这里首先是判断平行, 如果方向向量平行, 那么判断是否共线.
   // 相交和共线这里cross都返回true.
   template <typename U>
-  bool cross(const Line2D<U> &l) const {
+  bool cross(const Line2D<U>& l) const {
     if (isParallel(this->direction(), l.direction())) {
       if (sign(this->delta(l.p1)) == 0) {
         return true;
@@ -625,7 +626,7 @@ struct Line2D : public LineBase2D<T> {
     requires requires(T t) {
       { (std::abs(t)) };
     }
-  auto distanceWith(const Point2D<F> &p) const
+  auto distanceWith(const Point2D<F>& p) const
       -> decltype(std::sqrt(std::declval<T>())) {
     // 这里是获得直线的一般式的算法.
     // ref: https://blog.csdn.net/madbunny/article/details/43955883
@@ -644,7 +645,7 @@ struct Line2D : public LineBase2D<T> {
   // 思路就是最典型的|c1-c2|/sqrt(a^2+b^2)
   template <typename U>
     requires std::is_convertible_v<U, T>
-  auto distanceWith(const LineBase2D<U> &l) const {
+  auto distanceWith(const LineBase2D<U>& l) const {
     assert(isParallel(*this, l));
 
     [[assume(isParallel(*this, l))]];
@@ -659,7 +660,7 @@ struct Line2D : public LineBase2D<T> {
   // 约束类型随便写一点, 稍微测试一下就好, 反正浮点的圈子就那么大.
   template <typename U>
     requires std::is_convertible_v<U, T>
-  auto crossingPoint(const Line2D<U> &l) const
+  auto crossingPoint(const Line2D<U>& l) const
       -> Point2D<decltype(std::declval<T>() * std::declval<U>())> {
     using DataType = decltype(std::declval<T>() * std::declval<U>());
 
@@ -699,12 +700,12 @@ struct LineSegment2D : public LineBase2D<T> {
   // 现在的情况已经考虑到线段和直线的转换了...
   template <typename U>
     requires std::is_convertible_v<U, T>
-  LineSegment2D(const LineBase2D<U> &line) : LineBase2D<T>(line) {}
+  LineSegment2D(const LineBase2D<U>& line) : LineBase2D<T>(line) {}
 
   // 同样从两点构造
   template <typename T1, typename T2>
     requires std::is_convertible_v<T1, T> && std::is_convertible_v<T2, T>
-  LineSegment2D(const Point2D<T1> &p1, const Point2D<T2> &p2)
+  LineSegment2D(const Point2D<T1>& p1, const Point2D<T2>& p2)
       : LineBase2D<T>(p1, p2) {
     assert(p1 != p2);
   }
@@ -713,7 +714,7 @@ struct LineSegment2D : public LineBase2D<T> {
   template <typename P, typename F1, typename F2>
     requires std::is_convertible_v<P, T> && std::is_floating_point_v<F1> &&
              std::is_floating_point_v<F2>
-  LineSegment2D(const Point2D<P> &p, F1 rad, F2 len) {
+  LineSegment2D(const Point2D<P>& p, F1 rad, F2 len) {
     p1 = Point2D<T>(p);
 
     // 同样先调整参数, 只是这里单位是2pi.
@@ -732,20 +733,20 @@ struct LineSegment2D : public LineBase2D<T> {
   // 这里判定相等, 只有完全重合是相等.
   template <typename U>
     requires std::is_convertible_v<U, T>
-  bool operator==(const LineSegment2D<U> &line) const {
+  bool operator==(const LineSegment2D<U>& line) const {
     return (p1 == line.p1 && p2 == line.p2) || (p1 == line.p2 && p2 == line.p1);
   }
 
   // 线段之间的相交判定, 这里只讲浮点数的版本, 普通版逻辑相同, 只有细小差别.
   template <typename U>
-    requires requires(const LineSegment2D<T> &l, const LineSegment2D<U> &s) {
+    requires requires(const LineSegment2D<T>& l, const LineSegment2D<U>& s) {
       // 检查 delta 调用
       { l.delta(s.p1) };
       { s.delta(l.p1) };
     } &&
              // 使用标准概念，表示 T 和 U 之间可以进行全序比较
              std::totally_ordered_with<T, U>
-  bool cross(const LineSegment2D<U> &seg) const {
+  bool cross(const LineSegment2D<U>& seg) const {
     // 使用delta进行计算, 如果delta异号, 那么说明两点在直线异侧, 可能相交.
     auto d_a1 = this->delta(seg.p1), d_a2 = this->delta(seg.p2);
     // 同侧就别想了
@@ -782,13 +783,13 @@ struct LineSegment2D : public LineBase2D<T> {
 
   // 这个接口是用来判断一个点是否在我们的目标线段上.
   template <typename U>
-    requires requires(const Point2D<T> &pt1, const Point2D<U> &pu) {
+    requires requires(const Point2D<T>& pt1, const Point2D<U>& pu) {
       // 检查 crossProductValue(Point<T>, Point<U>) 是否有效
       { crossProductValue(pt1, pu) };
       // 检查 dotProduct(Point<T>, Point<U>) 是否有效 (这里用 * 代替)
       { pt1 * pu };
     }
-  bool isOnLineSegment(const Point2D<U> &p) const {
+  bool isOnLineSegment(const Point2D<U>& p) const {
     // ref: 算法竞赛 清华大学出版社
     return sign(crossProductValue(p - p1, p2 - p1)) == 0 &&
            sign((p - p1) * (p - p2)) <= 0;
@@ -804,7 +805,7 @@ struct LineSegment2D : public LineBase2D<T> {
   // 因为根式的存在, 这里参与的数据类型必须是浮点数.
     requires std::is_floating_point_v<decltype(std::declval<T>() *
                                                std::declval<U>())>
-  auto distanceWith(const Point2D<U> &p) const
+  auto distanceWith(const Point2D<U>& p) const
       -> decltype(std::declval<T>() * std::declval<U>()) {
     // 如果p1p和p1p2方向相反或者p2p和p2p1方向相反, 那么点在线段的竖向两侧,
     // 返回目标点到端点的最小距离.
@@ -812,7 +813,7 @@ struct LineSegment2D : public LineBase2D<T> {
       return std::min((p - p1).length(), (p - p2).length());
     } else {
       // 否则返回点到直线的距离.
-      return (static_cast<Line2D<T> &>(*this)).distanceWith(p);
+      return (static_cast<Line2D<T>&>(*this)).distanceWith(p);
     }
   }
 
@@ -828,7 +829,7 @@ struct LineSegment2D : public LineBase2D<T> {
 template <typename T>
   requires std::is_floating_point_v<T>  // -- 外层类模板约束
 template <typename U>                   // -- 成员函数模板参数
-bool Line2D<T>::cross(const LineSegment2D<U> &l) const {
+bool Line2D<T>::cross(const LineSegment2D<U>& l) const {
   return this->cross(l.p1, l.p2);
 }
 
@@ -838,7 +839,7 @@ template <typename F1, typename F2,
               std::is_floating_point_v<decltype(std::declval<F1>() +
                                                 std::declval<F2>())>,
               decltype(std::declval<F1>() + std::declval<F2>()), double>>
-auto bisection(const Point2D<F1> &p1, const Point2D<F2> &p2) -> Line2D<RT> {
+auto bisection(const Point2D<F1>& p1, const Point2D<F2>& p2) -> Line2D<RT> {
   // 获得中点
   Point2D<RT> mid = (Point2D<RT>(p1) + Point2D<RT>(p2)) / static_cast<RT>(2);
 
@@ -849,7 +850,7 @@ auto bisection(const Point2D<F1> &p1, const Point2D<F2> &p2) -> Line2D<RT> {
 // 线段的中垂线, 和两个点的中垂线其实是一个意思.
 template <typename F1, typename RT = std::conditional_t<
                            std::is_floating_point_v<F1>, F1, double>>
-auto bisection(const LineSegment2D<F1> &l) -> Line2D<RT> {
+auto bisection(const LineSegment2D<F1>& l) -> Line2D<RT> {
   return bisection(l.p1, l.p2);
 }
 
@@ -866,14 +867,14 @@ struct Circle2D {
   // 从圆心和半径构造圆
   template <typename F1, typename F2>
     requires std::is_convertible_v<F1, T> && std::is_convertible_v<F2, T>
-  Circle2D(const Point2D<F1> &c, F2 r) : c(c), r(r) {}
+  Circle2D(const Point2D<F1>& c, F2 r) : c(c), r(r) {}
 
   // 三点定圆, 这里取了一个平均值, 降低误差, 提高精度.
   template <typename F1, typename F2, typename F3>
     requires std::is_convertible_v<F1, T> && std::is_convertible_v<F2, T> &&
              std::is_convertible_v<F3, T>
-  Circle2D(const Point2D<F1> &p1, const Point2D<F2> &p2,
-           const Point2D<F3> &p3) {
+  Circle2D(const Point2D<F1>& p1, const Point2D<F2>& p2,
+           const Point2D<F3>& p3) {
     auto l1 = bisection(p1, p2);
     auto l2 = bisection(p2, p3);
     c = l1.crossingPoint(l2);
@@ -892,7 +893,7 @@ struct Circle2D {
                               std::declval<Point2D<T>>().distanceWith(
                                   std::declval<Point2D<F2>>())),
                      T>
-  Circle2D(const Point2D<F1> &p1, const Point2D<F2> &p2)
+  Circle2D(const Point2D<F1>& p1, const Point2D<F2>& p2)
       : c(Point2D<T>(p1 + p2) / 2),
         r(((T)(c.distanceWith(p1) + c.distanceWith(p2))) / 2) {}
 
@@ -901,7 +902,7 @@ struct Circle2D {
     requires requires(Point2D<T> c, Point2D<U> pu) {
       { sign(c.distanceWith(pu)) } -> std::convertible_to<int>;
     }
-  int relationWith(const Point2D<U> &p) {
+  int relationWith(const Point2D<U>& p) {
     auto distance = c.distanceWith(p);
     if (fcmp(distance, r) < 0) {
       return 2;  // 点在圆内, 从这一点引出的直线至少和圆有2个交点.
@@ -917,7 +918,7 @@ struct Circle2D {
     requires requires(Point2D<T> c, Line2D<U> l) {
       { sign(l.distanceWith(c)) } -> std::convertible_to<int>;
     }
-  int relationWith(const Line2D<U> &l) {
+  int relationWith(const Line2D<U>& l) {
     auto distance = l.distanceWith(c);
     if (fcmp(distance, r) < 0) {
       return 2;  // 线在圆内, 直线和圆有2个交点.
@@ -931,7 +932,7 @@ struct Circle2D {
   // 获得直线和圆的交点, 或者相交的线段.
   template <typename U, typename PD>
     requires std::is_floating_point_v<PD> && std::is_floating_point_v<U>
-  auto crossingLineSeg(const Line2D<U> &l, Point2D<PD> &p1, Point2D<PD> p2)
+  auto crossingLineSeg(const Line2D<U>& l, Point2D<PD>& p1, Point2D<PD> p2)
       -> int {
     // 计算圆心到直线的距离
     PD dis = l.distanceWith(c);
@@ -969,7 +970,7 @@ template <
     typename T, RandomStdContainer<Point2D<T>> Container,
     typename R = std::conditional_t<std::is_floating_point_v<T>, T, double>>
   requires(std::is_convertible_v<T, R>)
-Circle2D<R> minCoverCircle(const Container &carr) {
+Circle2D<R> minCoverCircle(const Container& carr) {
   // 随机排列传入的点,
   // 这里一定要随机才能获得近似与O(1)的复杂度, 别的都不行, 就是要无序.
   Container arr(carr);
@@ -1017,10 +1018,10 @@ struct Polygon2D {
   std::vector<Point2D<T>> pts;
 
   template <RandomStdContainer<Point2D<T>> Container>
-  Polygon2D(Container &&arr) : pts(arr.begin(), arr.end()) {}
+  Polygon2D(Container&& arr) : pts(arr.begin(), arr.end()) {}
 
-  Polygon2D(std::vector<Point2D<T>> &&vec) : pts(std::move(vec)) {}
-  Polygon2D(const std::vector<Point2D<T>> &vec) : pts(vec) {}
+  Polygon2D(std::vector<Point2D<T>>&& vec) : pts(std::move(vec)) {}
+  Polygon2D(const std::vector<Point2D<T>>& vec) : pts(vec) {}
 
   Polygon2D() = default;
 
@@ -1030,7 +1031,7 @@ struct Polygon2D {
   // 如果点在多边形的边上, 返回2
   // 如果点在多边形的顶点, 返回3
   template <typename U>
-  int relationWith(const Point2D<U> &pt) const {
+  int relationWith(const Point2D<U>& pt) const {
     using DT = decltype(std::declval<U>() - std::declval<T>());
 
     for (size_t i = 0; i < pts.size(); i++) {
@@ -1120,7 +1121,7 @@ struct Polygon2D {
 // 这个算法来源于清华大学的算法竞赛教程.
 // 比较难以理解, 但是总体来讲可以接受.
 template <typename T, RandomStdContainer<Point2D<T>> Container>
-auto convexHull(Container &&arr) -> Polygon2D<T>
+auto convexHull(Container&& arr) -> Polygon2D<T>
   requires requires(Vector2D<T> v) {
     { crossProductValue(v, v) };
   }
@@ -1131,7 +1132,7 @@ auto convexHull(Container &&arr) -> Polygon2D<T>
 
   // 按照X进行排序.
   // 当X相同时, 按照Y进行排序.
-  std::sort(vec.begin(), vec.end(), [](const auto &p1, const auto &p2) {
+  std::sort(vec.begin(), vec.end(), [](const auto& p1, const auto& p2) {
     if (p1.x < p2.x) {
       return true;
     }
@@ -1157,7 +1158,7 @@ auto convexHull(Container &&arr) -> Polygon2D<T>
   // 辅助函数, 给出一个点数组中的最后两点构成的向量.
   // Lambda就不要搞边界检查了,
   // 反正不会有第二个人调用它.
-  auto getLastVector = [](const auto &vec) {
+  auto getLastVector = [](const auto& vec) {
     return vec.back() - vec[vec.size() - 2];
   };
 
@@ -1171,7 +1172,7 @@ auto convexHull(Container &&arr) -> Polygon2D<T>
   // 遍历剩下的点
   for (size_t i = 2; i < vec.size(); i++) {
     // 准备加入凸包的点.
-    const auto &pt = vec[i];
+    const auto& pt = vec[i];
 
     // 向左拐是逆时针, 向右拐顺时针
     while (true) {
@@ -1206,7 +1207,7 @@ auto convexHull(Container &&arr) -> Polygon2D<T>
   upper.emplace_back(vec[vec.size() - 2]);
 
   for (long i = vec.size() - 3; i >= 0; i--) {
-    const auto &pt = vec[i];
+    const auto& pt = vec[i];
 
     // 向左拐是顺时针, 向右拐是逆时针
     while (true) {
@@ -1233,6 +1234,116 @@ auto convexHull(Container &&arr) -> Polygon2D<T>
   }
 
   return Polygon2D<T>(std::move(res));
+}
+
+template <Multiplyable T>
+T convexDiameterSquare(const Polygon2D<T>& convex) {
+  const auto& points = convex.pts;
+  auto n = convex.size();
+  Line2D<T> line1, line2;
+  size_t pt_idx1, pt_idx2;
+  {
+    // Generate the first parallel line in the
+    T max_y = std::numeric_limits<T>::lowest(),
+      min_y = std::numeric_limits<T>::max();
+    size_t max_y_idx, min_y_idx;
+    for (size_t i = 0; i < n; i++) {
+      if (points[i].y > max_y) {
+        max_y = points[i].y;
+        max_y_idx = i;
+      }
+      if (points[i].y < min_y) {
+        min_y = points[i].y;
+        min_y_idx = i;
+      }
+    }
+    line1 = Line2D<T>(points[max_y_idx], 0.0);
+    pt_idx1 = max_y_idx;
+    line2 = Line2D<T>(points[min_y_idx], 0.0);
+    pt_idx2 = min_y_idx;
+  }
+  T diameter_square = 0;
+  for (size_t i = 0; i < n; i++) {
+    enum MoveWitch : bool { LINE_1, LINE_2 } move_witch;
+    {
+      // --- Minimal fix: compare each caliper's rotation separately ---
+      Vector2D<T> line_dir1 = line1.p2 - line1.p1;  // direction of line1
+      Vector2D<T> line_dir2 = line2.p2 - line2.p1;  // direction of line2
+
+      Vector2D<T> new_dir_1 = points[(pt_idx1 + 1) % n] - points[pt_idx1];
+      Vector2D<T> new_dir_2 = points[(pt_idx2 + 1) % n] - points[pt_idx2];
+
+      auto cross1 = (crossProductValue(line_dir1, new_dir_1));
+      auto cross2 = (crossProductValue(line_dir2, new_dir_2));
+      auto ld_line1 = (line_dir1.length2());
+      auto ld_line2 = (line_dir2.length2());
+
+      // 如果某条卡尺长度为 0（极端/初始化情形），把它的度量设为 +inf
+      // 以避免优先转动
+      long double metric1 = (ld_line1 > 0)
+                                ? std::abs(cross1) / std::sqrt(ld_line1)
+                                : std::numeric_limits<long double>::infinity();
+      long double metric2 = (ld_line2 > 0)
+                                ? std::abs(cross2) / std::sqrt(ld_line2)
+                                : std::numeric_limits<long double>::infinity();
+
+      if (fcmp(metric1, metric2) <= 0) {
+        move_witch = LINE_1;
+      } else {
+        move_witch = LINE_2;
+      }
+    }
+
+    size_t next_idx;
+    Vector2D<T> new_dir;
+    switch (move_witch) {
+      case LINE_1:
+        next_idx = pt_idx1 + 1;
+        next_idx %= n;
+        line1 = Line2D<T>(points[pt_idx1], points[next_idx]);
+        new_dir = points[next_idx] - points[pt_idx1];
+        {
+          auto candidate_1 = points[pt_idx2];
+          auto candidate_2 = points[(pt_idx2 + 1) % n];
+          if (line1.distanceWith(candidate_1) >=
+              line1.distanceWith(candidate_2)) {
+            line2.p1 = candidate_1;
+          } else {
+            line2.p1 = candidate_2;
+            pt_idx2 = (pt_idx2 + 1) % n;
+          }
+        }
+        line2.p2 = line2.p1 + new_dir;
+        diameter_square = std::max<T>(
+            {(points[pt_idx1] - points[pt_idx2]).length2(),
+             (points[next_idx] - points[pt_idx2]).length2(), diameter_square});
+        pt_idx1 = next_idx;
+        break;
+      case LINE_2:
+        next_idx = pt_idx2 + 1;
+        next_idx %= n;
+        line2 = Line2D<T>(points[pt_idx2], points[next_idx]);
+        new_dir = points[next_idx] - points[pt_idx2];
+        {
+          auto candidate_1 = points[pt_idx1];
+          auto candidate_2 = points[(pt_idx1 + 1) % n];
+          if (line2.distanceWith(candidate_1) >=
+              line2.distanceWith(candidate_2)) {
+            line1.p1 = candidate_1;
+          } else {
+            line1.p1 = candidate_2;
+            pt_idx1 = (pt_idx1 + 1) % n;
+          }
+        }
+        line1.p2 = line1.p1 + new_dir;
+        diameter_square = std::max<T>(
+            {(points[pt_idx2] - points[pt_idx1]).length2(),
+             (points[next_idx] - points[pt_idx1]).length2(), diameter_square});
+        pt_idx2 = next_idx;
+        break;
+    }
+  }
+  return diameter_square;
 }
 
 }  // namespace geometry
