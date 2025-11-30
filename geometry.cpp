@@ -1160,4 +1160,342 @@ struct Polygon2D {
   }
 };
 
+/**
+ * @brief 使用 Monotone Chain (Andrew's) 算法计算点集的凸包。
+ *
+ * 该算法的步骤如下：
+ * 1. 按 x 坐标（主关键字）和 y 坐标（次关键字）对所有点进行排序。
+ * 2. 从左到右遍历排序后的点，构建凸包的“下半部分”（下凸包）。
+ * 3. 从右到左遍历排序后的点，构建凸包的“上半部分”（上凸包）。
+ * 4. 将上下两部分合并，形成完整的凸包。
+ *
+ * 算法的时间复杂度主要由排序决定，为 O(N log N)，其中 N 是点的数量。
+ *
+ * @tparam T 坐标的数据类型。
+ * @tparam Container 包含 Point2D<T> 的随机访问容器类型。
+ * @param arr 包含输入点的容器。
+ * @return Polygon2D<T> 表示点集凸包的多边形。
+ */
+template <typename T, RandomStdContainer<Point2D<T>> Container>
+auto convexHull(Container&& arr) -> Polygon2D<T>
+  requires requires(Vector2D<T> v) {
+    {
+      crossProductValue(v, v)
+    };  // C++20 concept: 要求 Vector2D<T> 支持 crossProductValue 操作
+  }
+{
+  // 先将输入点复制到一个 std::vector 中，以便进行排序和修改。
+  // 这样做可以处理 const 引用和非 vector 类型的输入容器。
+  std::vector<Point2D<T>> vec(arr.begin(), arr.end());
+
+  // --- 步骤 1: 排序 ---
+  // 按照 x 坐标从小到大进行排序。
+  // 如果 x 坐标相同，则按照 y 坐标从小到大排序。
+  // 这是 Monotone Chain 算法的强制性预处理步骤。
+  std::sort(vec.begin(), vec.end(), [](const auto& p1, const auto& p2) {
+    if (p1.x < p2.x) {
+      return true;
+    }
+    // 使用 fcmp 处理浮点数精度问题
+    if (fcmp(p1.x, p2.x) == 0) {
+      return p1.y < p2.y;
+    }
+    return false;
+  });
+
+  // --- 预处理: 去重 ---
+  // 排序后，相同的点会相邻，可以使用 std::unique 高效去重。
+  // 重复的点对于凸包算法没有意义，且可能导致问题。
+  vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+
+  // --- 处理特殊情况 ---
+  // 如果点的数量少于3个，它们本身就构成了凸包（或一条线，或一个点）。
+  // 算法的主体部分至少需要2个点才能启动，所以这里直接返回。
+  if (vec.size() < 3) {
+    return Polygon2D<T>(std::move(vec));
+  }
+
+  // 辅助函数，获取一个点向量中由最后两个点构成的向量。
+  // 用于后续判断拐向。
+  auto getLastVector = [](const auto& point_vec) {
+    return point_vec.back() - point_vec[point_vec.size() - 2];
+  };
+
+  // --- 步骤 2: 构建下凸包 ---
+  // 从最左边的点开始，向右遍历，构建凸包的下半部分。
+  std::vector<Point2D<T>> lower;
+  // 将排序后的前两个点（最左边的两个）先放入下凸包。
+  lower.emplace_back(vec[0]);
+  lower.emplace_back(vec[1]);
+
+  // 从第三个点开始遍历
+  for (size_t i = 2; i < vec.size(); i++) {
+    // 获取当前准备加入凸包的点
+    const auto& pt = vec[i];
+
+    // 这个循环是算法的核心：维护下凸包的凸性。
+    // 我们需要保证新加入的点 pt 会使得凸包的边向“右”拐。
+    while (true) {
+      // v1 是当前下凸包路径的最后一条边向量
+      auto v1 = getLastVector(lower);
+      // v2 是连接路径终点和新点 pt 的向量
+      auto v2 = pt - lower.back();
+
+      // 计算 v1 和 v2 的叉积来判断拐向。
+      // **重要约定**: 这里假设 crossProductValue(v1, v2) > 0 表示 v2 在 v1
+      // 的顺时针方向（右拐）。 这是构建下凸包所期望的。
+      auto cross = crossProductValue(v1, v2);
+
+      // 如果是右拐或共线 (cross >= 0)，说明新点可以维持下凸包的凸性。
+      // 于是将新点加入，并结束当前点的处理，转向下一个点。
+      if (cross >= 0) {
+        lower.emplace_back(pt);
+        break;
+      }
+
+      // 如果是左拐 (cross < 0)，说明 lower.back() 这个点使得路径凹进去了，
+      // 它不属于最终的下凸包。因此需要将它弹出，然后用更早的点重新进行判断。
+      lower.pop_back();
+      // 如果弹到只剩一个点，那么新点 pt 无论如何都可以直接加入。
+      if (lower.size() < 2) {
+        lower.emplace_back(pt);
+        break;
+      }
+    }
+  }
+
+  // --- 步骤 3: 构建上凸包 ---
+  // 逻辑与下凸包完全相同，但是从最右边的点开始，向左遍历。
+  std::vector<Point2D<T>> upper;
+  // 将排序后的最后两个点（最右边的两个）先放入上凸包。
+  upper.emplace_back(vec.back());
+  upper.emplace_back(vec[vec.size() - 2]);
+
+  // 从倒数第三个点开始，反向遍历
+  for (long i = vec.size() - 3; i >= 0; i--) {
+    const auto& pt = vec[i];
+
+    // 同样，维护上凸包的凸性。
+    // 从右向左遍历时，我们同样期望路径是“向右”拐的（相对于遍历方向）。
+    while (true) {
+      auto v1 = getLastVector(upper);
+      auto v2 = pt - upper.back();
+      auto cross = crossProductValue(v1, v2);
+
+      // 同样，如果是右拐或共线 (cross >= 0)，则加入新点。
+      if (cross >= 0) {
+        upper.emplace_back(pt);
+        break;
+      }
+
+      // 如果是左拐 (cross < 0)，则弹出上一个点。
+      upper.pop_back();
+      if (upper.size() < 2) {
+        upper.emplace_back(pt);
+        break;
+      }
+    }
+  }
+
+  // --- 步骤 4: 合并上下凸包 ---
+  // 将下凸包作为结果的基础
+  auto res = std::move(lower);
+  // 将上凸包的中间部分（去除头尾，因为头尾点已在下凸包中）追加到结果中。
+  // 上凸包的遍历顺序是从右到左，所以它本身是逆序的，但追加到顺时针的下凸包后面，
+  // 刚好能形成一个完整的顺时针（或逆时针，取决于叉积定义）凸包。
+  for (size_t i = 1; i < upper.size() - 1; i++) {
+    res.emplace_back(std::move(upper[i]));
+  }
+
+  return Polygon2D<T>(std::move(res));
+}
+
+/**
+ * @brief 使用旋转卡壳算法计算凸多边形的直径的平方。
+ *
+ * "旋转卡壳" (Rotating Calipers) 是一种寻找凸多边形对踵点对 (antipodal pairs)
+ * 的高效算法。 算法通过模拟一对平行支撑线（卡尺）绕着凸多边形“旋转”一周，
+ * 在这个过程中，卡尺始终与多边形相切。多边形的直径必然是某一对对踵点之间的距离。
+ *
+ * @tparam T 坐标的数据类型，必须是可乘的（例如 int, double）。
+ * @param convex 一个表示凸多边形的对象，其顶点 `pts` 按逆时针顺序排列。
+ * @return T
+ * 凸多边形直径的平方。返回平方值可以避免开方运算，从而保持精度和效率。
+ */
+template <Multiplyable T>
+T convexDiameterSquare(const Polygon2D<T>& convex) {
+  // 获取多边形的顶点引用和顶点数量
+  const auto& points = convex.pts;
+  auto n = convex.size();
+
+  // 如果顶点数少于2，则直径为0
+  if (n < 2) {
+    return 0;
+  }
+
+  // line1 和 line2 代表一对平行的“卡尺”
+  Line2D<T> line1, line2;
+  // pt_idx1 和 pt_idx2 是这对卡尺当前支撑的顶点在 points 数组中的索引
+  size_t pt_idx1, pt_idx2;
+
+  {
+    // --- 初始化步骤 ---
+    // 寻找初始的对踵点对。一个常见的有效方法是找到y坐标最大和最小的两个点。
+    // 这两个点构成了一对水平的对踵点。
+    T max_y = std::numeric_limits<T>::lowest(),
+      min_y = std::numeric_limits<T>::max();
+    size_t max_y_idx, min_y_idx;
+    for (size_t i = 0; i < n; i++) {
+      if (points[i].y > max_y) {
+        max_y = points[i].y;
+        max_y_idx = i;
+      }
+      if (points[i].y < min_y) {
+        min_y = points[i].y;
+        min_y_idx = i;
+      }
+    }
+    // 初始化卡尺。此时，两条线都是水平的。
+    // 我们用点和方向向量来表示线，但这里为了简化，只设置了线的支撑点，
+    // 方向将在主循环的第一次迭代中确定。
+    // 这里将线的斜率设为0.0，代表水平线。
+    line1 = Line2D<T>(points[max_y_idx], 0.0);
+    pt_idx1 = max_y_idx;
+    line2 = Line2D<T>(points[min_y_idx], 0.0);
+    pt_idx2 = min_y_idx;
+  }
+
+  // 初始化直径的平方为初始对踵点对之间的距离平方
+  T diameter_square = (points[pt_idx1] - points[pt_idx2]).length2();
+
+  // --- 主循环 ---
+  // 循环 n 次，模拟卡尺围绕多边形旋转一周。
+  // 每一步，我们都选择旋转角度更小的那把卡尺，使其与多边形的一条边对齐。
+  for (size_t i = 0; i < n; i++) {
+    enum MoveWitch : bool { LINE_1, LINE_2 } move_witch;
+    {
+      // --- 决定旋转哪一把卡尺 ---
+      // 这个决策是旋转卡壳算法的核心。
+      // 我们需要比较 line1 和 line2
+      // 分别旋转到下一条边所需要的角度，选择更小的那个。
+      // 角度的比较可以通过比较向量叉积来实现，避免直接计算角度和使用反三角函数。
+
+      // line_dir1 是卡尺1当前的方向。在第一次迭代中，它是 (1,0) 因为斜率为0。
+      // 之后，它将是多边形某条边的方向。
+      Vector2D<T> line_dir1 = line1.p2 - line1.p1;
+      // new_dir_1
+      // 是卡尺1支撑点与其下一个顶点构成的边的向量，即卡尺1下一个可能对齐的方向。
+      Vector2D<T> new_dir_1 = points[(pt_idx1 + 1) % n] - points[pt_idx1];
+
+      // line_dir2 和 new_dir_2 对于卡尺2也是同理。
+      Vector2D<T> line_dir2 = line2.p2 - line2.p1;
+      Vector2D<T> new_dir_2 = points[(pt_idx2 + 1) % n] - points[pt_idx2];
+
+      // 向量 a 和 b 的叉积 a x b 的大小等于 |a|*|b|*sin(theta)。
+      // 因此，sin(theta) = |a x b| / (|a|*|b|)。
+      // 在比较角度时，我们只需要比较 sin(theta)
+      // 的值（因为角度范围在0到180度之间）。 这里的 metric 正比于
+      // sin(theta)，用于比较旋转角度的大小。
+      auto cross1 = (crossProductValue(line_dir1, new_dir_1));
+      auto cross2 = (crossProductValue(line_dir2, new_dir_2));
+      auto ld_line1 = (line_dir1.length2());
+      auto ld_line2 = (line_dir2.length2());
+
+      // 如果卡尺方向向量长度为0（比如初始化时），我们不希望选择它旋转。
+      // 将其度量设为无穷大，这样另一把卡尺会被优先选择。
+      long double metric1 =
+          (ld_line1 > 0)
+              ? std::abs(cross1) /
+                    std::sqrt(ld_line1)  // 正比于 |new_dir_1|*sin(theta1)
+              : std::numeric_limits<long double>::infinity();
+      long double metric2 =
+          (ld_line2 > 0)
+              ? std::abs(cross2) /
+                    std::sqrt(ld_line2)  // 正比于 |new_dir_2|*sin(theta2)
+              : std::numeric_limits<long double>::infinity();
+
+      // 注意: 由于 |new_dir_1| 和 |new_dir_2| 是边长，不是常量，所以 metric1 和
+      // metric2 并非直接等于
+      // sin(theta)。但它们的大小顺序关系与角度大小顺序一致，足以用于比较。 fcmp
+      // 是一个用于浮点数比较的函数，处理精度问题。 如果 metric1 <=
+      // metric2，意味着卡尺1旋转到下一条边所需的角度更小（或相等）。
+      if (fcmp(metric1, metric2) <= 0) {
+        move_witch = LINE_1;  // 选择旋转卡尺1
+      } else {
+        move_witch = LINE_2;  // 选择旋转卡尺2
+      }
+    }
+
+    // --- 执行旋转并更新状态 ---
+    size_t next_idx;
+    Vector2D<T> new_dir;
+    switch (move_witch) {
+      case LINE_1:
+        // 旋转卡尺1
+        next_idx = (pt_idx1 + 1) % n;
+        // 新的卡尺方向与边 (pt_idx1, next_idx) 平行
+        new_dir = points[next_idx] - points[pt_idx1];
+        line1 = Line2D<T>(points[pt_idx1], points[next_idx]);
+
+        // 卡尺1旋转后，卡尺2必须保持与之平行，并找到新的支撑点以维持对踵关系。
+        // 新的对踵点一定是原支撑点 pt_idx2 或它的下一个点。
+        // 我们通过比较这两个候选点到新卡尺 line1 的距离来确定。
+        {
+          auto candidate_1 = points[pt_idx2];
+          auto candidate_2 = points[(pt_idx2 + 1) % n];
+          // 找到距离 line1 更远的点作为 line2 的新支撑点
+          if (line1.distanceWith(candidate_1) >=
+              line1.distanceWith(candidate_2)) {
+            line2.p1 = candidate_1;
+          } else {
+            line2.p1 = candidate_2;
+            pt_idx2 = (pt_idx2 + 1) % n;  // 如果支撑点变了，更新索引
+          }
+        }
+        // 更新 line2 的另一个点，使其方向与 line1 平行
+        line2.p2 = line2.p1 + new_dir;
+
+        // 更新直径平方。新的对踵点对可能是 (pt_idx1, pt_idx2) 或 (next_idx,
+        // pt_idx2)。 我们需要检查这两个新点对的距离。
+        diameter_square = std::max<T>(
+            {(points[pt_idx1] - points[pt_idx2]).length2(),
+             (points[next_idx] - points[pt_idx2]).length2(), diameter_square});
+
+        // 更新卡尺1的支撑点索引
+        pt_idx1 = next_idx;
+        break;
+
+      case LINE_2:
+        // 旋转卡尺2，逻辑与旋转卡尺1完全对称。
+        next_idx = (pt_idx2 + 1) % n;
+        new_dir = points[next_idx] - points[pt_idx2];
+        line2 = Line2D<T>(points[pt_idx2], points[next_idx]);
+
+        // 找到 line1 的新支撑点
+        {
+          auto candidate_1 = points[pt_idx1];
+          auto candidate_2 = points[(pt_idx1 + 1) % n];
+          if (line2.distanceWith(candidate_1) >=
+              line2.distanceWith(candidate_2)) {
+            line1.p1 = candidate_1;
+          } else {
+            line1.p1 = candidate_2;
+            pt_idx1 = (pt_idx1 + 1) % n;
+          }
+        }
+        // 保持 line1 与 line2 平行
+        line1.p2 = line1.p1 + new_dir;
+
+        // 更新直径平方
+        diameter_square = std::max<T>(
+            {(points[pt_idx2] - points[pt_idx1]).length2(),
+             (points[next_idx] - points[pt_idx1]).length2(), diameter_square});
+
+        // 更新卡尺2的支撑点索引
+        pt_idx2 = next_idx;
+        break;
+    }
+  }
+  return diameter_square;
+}
 }  // namespace geometry
